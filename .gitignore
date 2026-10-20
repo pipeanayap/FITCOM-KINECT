@@ -1,0 +1,15 @@
+.DS_Store
+/.build
+/Packages
+xcuserdata/
+DerivedData/
+.swiftpm/configuration/registries.json
+.swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
+.netrc
+
+/xtool
+
+# Claves de Supabase: cada quien usa las suyas (ver Secrets.swift.example)
+Sources/Kinect/Supabase/Secrets.swift
+supabase/.temp/
+supabase/.branches/

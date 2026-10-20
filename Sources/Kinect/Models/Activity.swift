@@ -1,0 +1,97 @@
+import Foundation
+
+/// Nivel requerido para participar (US-03, US-06).
+enum ActivityLevel: String, Codable, CaseIterable, Identifiable {
+    case principiante
+    case intermedio
+    case avanzado
+    case cualquierNivel = "cualquier_nivel"
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .principiante: "Principiante"
+        case .intermedio: "Intermedio"
+        case .avanzado: "Avanzado"
+        case .cualquierNivel: "Cualquier nivel"
+        }
+    }
+}
+
+/// Estado explícito que guarda la base de datos (US-03: "comienza abierta").
+/// "completa" y "finalizada" no se guardan: se calculan (ver ``ActivityStatus``).
+enum ActivityExplicitStatus: String, Codable {
+    case abierta
+    case cancelada
+}
+
+/// Estado real de una actividad una vez considerando cupo y fecha (US-05, US-08).
+enum ActivityStatus: String, Codable {
+    case abierta
+    case completa
+    case cancelada
+    case finalizada
+
+    var label: String {
+        switch self {
+        case .abierta: "Abierta"
+        case .completa: "Completa"
+        case .cancelada: "Cancelada"
+        case .finalizada: "Finalizada"
+        }
+    }
+}
+
+/// Una actividad leída desde la vista `activities_public`, que ya trae el
+/// conteo de participantes y el estado calculado (US-04 a US-09).
+struct Activity: Codable, Identifiable, Hashable {
+    var id: UUID
+    var organizerId: UUID
+    var sport: String
+    var title: String
+    var description: String?
+    var scheduledAt: Date
+    var zone: String
+    var level: ActivityLevel
+    var capacity: Int
+    var estimatedCost: Double?
+    // coordination_link NO viene aquí: activities_public no lo incluye.
+    // Se pide por separado con ActivityService.coordinationLink(activityId:),
+    // que en la base de datos sólo responde a organizador/participantes/admin (US-13).
+    var status: ActivityExplicitStatus
+    var isHidden: Bool
+    var createdAt: Date
+    var updatedAt: Date
+    var participantCount: Int
+    var spotsLeft: Int
+    var computedStatus: ActivityStatus
+
+    var canAcceptParticipants: Bool { computedStatus == .abierta }
+}
+
+/// Lo que se manda al crear una actividad (US-03).
+struct NewActivity: Encodable {
+    var organizerId: UUID
+    var sport: String
+    var title: String
+    var description: String?
+    var scheduledAt: Date
+    var zone: String
+    var level: ActivityLevel
+    var capacity: Int
+    var estimatedCost: Double?
+}
+
+/// Lo que se manda al editar una actividad (US-11): mismos campos, sin organizador.
+struct ActivityEdit: Encodable {
+    var sport: String
+    var title: String
+    var description: String?
+    var scheduledAt: Date
+    var zone: String
+    var level: ActivityLevel
+    var capacity: Int
+    var estimatedCost: Double?
+    var coordinationLink: String?
+}
