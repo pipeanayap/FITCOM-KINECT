@@ -19,7 +19,9 @@ struct ModerationView: View {
                     ForEach(Section.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                 }
                 .pickerStyle(.segmented)
+                .tint(.brandAccent)
                 .padding(.horizontal)
+                .padding(.top, 8)
 
                 switch section {
                 case .reportes: ReportsModerationView()

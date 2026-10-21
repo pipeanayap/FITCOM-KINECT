@@ -32,38 +32,49 @@ struct MyActivitiesView: View {
                         systemImage: "calendar.badge.plus"
                     )
                 } else {
-                    List {
-                        if !organized.isEmpty {
-                            Section("Creadas por mí") {
-                                ForEach(organized) { activity in
-                                    NavigationLink(value: activity.id) {
-                                        ActivityRowView(activity: activity)
+                    ScrollView {
+                        LazyVStack(spacing: 20) {
+                            if !organized.isEmpty {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    SectionHeaderView(title: "Creadas por mí")
+                                    ForEach(organized) { activity in
+                                        NavigationLink(value: activity.id) {
+                                            ActivityRowView(activity: activity)
+                                        }
+                                        .buttonStyle(.plain)
                                     }
                                 }
                             }
-                        }
-                        if !joined.isEmpty {
-                            Section("A las que me uní") {
-                                ForEach(joined) { entry in
-                                    NavigationLink(value: entry.activity.id) {
-                                        VStack(alignment: .leading) {
-                                            ActivityRowView(activity: entry.activity)
+                            if !joined.isEmpty {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    SectionHeaderView(title: "A las que me uní")
+                                    ForEach(joined) { entry in
+                                        VStack(alignment: .leading, spacing: 8) {
+                                            NavigationLink(value: entry.activity.id) {
+                                                ActivityRowView(activity: entry.activity)
+                                            }
+                                            .buttonStyle(.plain)
                                             if entry.activity.computedStatus == .finalizada
                                                 && entry.participation.status == .activa {
                                                 Button("Calificar experiencia") {
                                                     feedbackTarget = entry.activity
                                                 }
-                                                .font(.footnote)
+                                                .buttonStyle(.fitcomSecondary)
+                                                .padding(.leading, 4)
                                             }
                                         }
                                     }
                                 }
                             }
                         }
+                        .padding(.horizontal)
+                        .padding(.vertical, 12)
                     }
+                    .background(Color.screenBackground)
                     .refreshable { await load() }
                 }
             }
+            .background(Color.screenBackground)
             .navigationTitle("Mis actividades")
             .navigationDestination(for: UUID.self) { activityId in
                 ActivityDetailView(activityId: activityId)

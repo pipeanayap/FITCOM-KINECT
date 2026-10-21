@@ -1,3 +1,4 @@
+import CoreLocation
 import Foundation
 
 /// Nivel requerido para participar (US-03, US-06).
@@ -66,8 +67,22 @@ struct Activity: Codable, Identifiable, Hashable {
     var participantCount: Int
     var spotsLeft: Int
     var computedStatus: ActivityStatus
+    var latitude: Double?
+    var longitude: Double?
 
     var canAcceptParticipants: Bool { computedStatus == .abierta }
+
+    /// Coordenada del lugar elegido; `nil` en actividades anteriores a SCRUM-35.
+    var coordinate: CLLocationCoordinate2D? {
+        guard let latitude, let longitude else { return nil }
+        return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+
+    /// Distancia en metros desde `origin`; `nil` si la actividad no tiene coordenadas.
+    func distance(from origin: CLLocation) -> CLLocationDistance? {
+        guard let latitude, let longitude else { return nil }
+        return CLLocation(latitude: latitude, longitude: longitude).distance(from: origin)
+    }
 }
 
 /// Lo que se manda al crear una actividad (US-03).
@@ -81,6 +96,8 @@ struct NewActivity: Encodable {
     var level: ActivityLevel
     var capacity: Int
     var estimatedCost: Double?
+    var latitude: Double?
+    var longitude: Double?
 }
 
 /// Lo que se manda al editar una actividad (US-11): mismos campos, sin organizador.
@@ -93,5 +110,7 @@ struct ActivityEdit: Encodable {
     var level: ActivityLevel
     var capacity: Int
     var estimatedCost: Double?
+    var latitude: Double?
+    var longitude: Double?
     var coordinationLink: String?
 }

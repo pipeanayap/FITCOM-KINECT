@@ -11,17 +11,25 @@ struct CreateActivityView: View {
         NavigationStack {
             Group {
                 if authStore.isSignedIn {
-                    VStack(spacing: 16) {
-                        Image(systemName: "calendar.badge.plus")
-                            .font(.system(size: 48))
-                            .foregroundStyle(.secondary)
-                        Text("Publica una actividad deportiva y encuentra gente para hacerla contigo.")
-                            .multilineTextAlignment(.center)
-                            .foregroundStyle(.secondary)
+                    VStack(spacing: 20) {
+                        ZStack {
+                            Circle().fill(Color.brandAccent.gradient).frame(width: 96, height: 96)
+                            Image(systemName: "calendar.badge.plus")
+                                .font(.system(size: 38, weight: .semibold))
+                                .foregroundStyle(.white)
+                        }
+                        VStack(spacing: 6) {
+                            Text("¿Qué quieres hacer hoy?").font(.title3.bold())
+                            Text("Publica una actividad deportiva y encuentra gente para hacerla contigo.")
+                                .font(.subheadline)
+                                .multilineTextAlignment(.center)
+                                .foregroundStyle(.secondary)
+                        }
                         Button("Publicar actividad") { showForm = true }
-                            .buttonStyle(.borderedProminent)
+                            .buttonStyle(.fitcomPrimary)
+                            .frame(maxWidth: 260)
                     }
-                    .padding()
+                    .padding(32)
                 } else {
                     EmptyStateView(
                         title: "Inicia sesión para publicar",
@@ -30,6 +38,8 @@ struct CreateActivityView: View {
                     )
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.screenBackground)
             .navigationTitle("Nueva actividad")
             .navigationDestination(item: $createdActivity) { activity in
                 ActivityDetailView(activityId: activity.id)

@@ -60,6 +60,7 @@ struct ActivityFeedbackView: View {
                 }
             }
         }
+        .tint(.brandAccent)
     }
 
     private func send() async {

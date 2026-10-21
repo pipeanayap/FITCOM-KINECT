@@ -3,11 +3,13 @@ import SwiftUI
 /// Detalle completo de una actividad: info del organizador, participantes y
 /// disponibilidad, unirse/salir, enlace de coordinación y reportar
 /// (US-05, US-07, US-08, US-10, US-13, US-14). Edición y cancelación
-/// (US-11, US-12) sólo si quien mira es el organizador.
+/// (US-11, US-12) sólo si quien mira es el organizador. Encabezado a toda
+/// anchura + barra de acción fija abajo, estilo "boleto de evento".
 struct ActivityDetailView: View {
     let activityId: UUID
 
     @Environment(AuthStore.self) private var authStore
+    @Environment(\.dismiss) private var dismiss
 
     @State private var activity: Activity?
     @State private var organizerName: String?
@@ -33,11 +35,13 @@ struct ActivityDetailView: View {
             } else if let errorMessage {
                 ErrorStateView(message: errorMessage) { await load() }
             } else if let activity {
+                // Sólo aquí se esconde la barra nativa: el encabezado a toda
+                // anchura trae su propio botón de regresar. En carga/error
+                // seguimos con la barra normal para poder salir de la pantalla.
                 content(for: activity)
+                    .toolbar(.hidden, for: .navigationBar)
             }
         }
-        .navigationTitle(activity?.title ?? "Actividad")
-        .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
         .sheet(isPresented: $showEditSheet) {
             if let activity {
@@ -70,114 +74,263 @@ struct ActivityDetailView: View {
 
     @ViewBuilder
     private func content(for activity: Activity) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack {
-                    Text(activity.sport.capitalized).font(.title3).bold()
-                    Spacer()
-                    StatusBadge(status: activity.computedStatus)
-                }
+        ZStack(alignment: .bottom) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    hero(for: activity)
 
-                if let organizerName {
-                    Label("Organiza \(organizerName)", systemImage: "person.crop.circle")
-                        .foregroundStyle(.secondary)
-                }
+                    if let description = activity.description, !description.isEmpty {
+                        Text(description)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.brandText)
+                            .cardStyle()
+                    }
 
-                if let description = activity.description, !description.isEmpty {
-                    Text(description)
-                }
+                    HStack(spacing: 10) {
+                        infoChip(icon: "gauge.with.dots.needle.50percent", label: "Nivel", value: activity.level.label)
+                        infoChip(icon: "calendar", label: "Fecha", value: activity.scheduledAt.formatted(.dateTime.day().month(.abbreviated)))
+                        infoChip(icon: "clock", label: "Hora", value: activity.scheduledAt.formatted(.dateTime.hour().minute()))
+                    }
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Label(activity.scheduledAt.formatted(Self.dateStyle), systemImage: "calendar")
-                    Label(activity.zone, systemImage: "mappin.and.ellipse")
-                    Label(activity.level.label, systemImage: "figure.run")
+                    infoRow(icon: "mappin.and.ellipse", text: activity.zone)
+                        .cardStyle()
+
                     if let cost = activity.estimatedCost {
-                        Label(cost.formatted(.currency(code: "MXN")), systemImage: "dollarsign.circle")
+                        infoRow(icon: "dollarsign.circle.fill", text: "Costo estimado: \(cost.formatted(.currency(code: "MXN")))")
+                            .cardStyle()
                     }
-                }
-                .font(.subheadline)
 
-                Divider()
+                    participantsCard(for: activity)
 
-                Text("Participantes (\(activity.participantCount)/\(activity.capacity))")
-                    .font(.headline)
-                if participants.isEmpty {
-                    Text("Todavía nadie se ha unido.").foregroundStyle(.secondary)
-                } else {
-                    ForEach(participants) { participant in
-                        Text(participant.profile.fullName)
+                    if let coordinationLink, !coordinationLink.isEmpty {
+                        coordinationCard(link: coordinationLink)
                     }
-                }
 
-                if let coordinationLink, !coordinationLink.isEmpty {
-                    Divider()
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Coordinación").font(.headline)
-                        Text("Esto te lleva fuera de FITCOM para coordinar los detalles.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                        if let url = URL(string: coordinationLink) {
-                            Link(coordinationLink, destination: url)
-                        } else {
-                            Text(coordinationLink)
+                    if authStore.isSignedIn && authStore.userId != activity.organizerId {
+                        Button {
+                            showReportSheet = true
+                        } label: {
+                            Label("Reportar actividad", systemImage: "flag.fill")
                         }
+                        .font(.footnote.weight(.medium))
+                        .foregroundStyle(.red)
+                        .padding(.horizontal, 4)
                     }
+
+                    if let actionError {
+                        Label(actionError, systemImage: "exclamationmark.circle.fill")
+                            .foregroundStyle(.red)
+                            .font(.footnote)
+                            .padding(.horizontal, 4)
+                    }
+
+                    // Deja espacio para que la barra fija de abajo no tape el último elemento.
+                    Color.clear.frame(height: 70)
                 }
-
-                Divider()
-
-                actionsSection(for: activity)
-
-                if let actionError {
-                    Text(actionError).foregroundStyle(.red).font(.footnote)
-                }
+                .padding(.horizontal)
+                .padding(.top, 16)
             }
-            .padding()
+            .background(Color.screenBackground)
+            .refreshable { await load() }
+
+            StickyActionBar { actionBarContent(for: activity) }
         }
-        .refreshable { await load() }
     }
 
     @ViewBuilder
-    private func actionsSection(for activity: Activity) -> some View {
+    private func hero(for activity: Activity) -> some View {
+        ZStack(alignment: .topLeading) {
+            SportVisuals.gradient(for: activity.sport)
+            Image(systemName: SportVisuals.symbol(for: activity.sport))
+                .font(.system(size: 130))
+                .foregroundStyle(.white.opacity(0.12))
+                .offset(x: 80, y: 10)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Button { dismiss() } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 36, height: 36)
+                            .background(.white.opacity(0.18), in: Circle())
+                    }
+                    Spacer()
+                    StatusBadge(status: activity.computedStatus)
+                }
+                Spacer()
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(activity.sport.capitalized)
+                        .font(.caption.weight(.bold))
+                        .tracking(0.5)
+                        .foregroundStyle(.white.opacity(0.75))
+                    Text(activity.title)
+                        .font(.title.bold())
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                    if let organizerName {
+                        Label("Organiza \(organizerName)", systemImage: "person.crop.circle.fill")
+                            .font(.footnote)
+                            .foregroundStyle(.white.opacity(0.85))
+                    }
+                }
+            }
+            .padding(20)
+        }
+        .frame(height: 230)
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .shadow(color: .black.opacity(0.15), radius: 14, x: 0, y: 8)
+    }
+
+    private func infoChip(icon: String, label: String, value: String) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon).foregroundStyle(Color.brandAccent)
+            Text(value).font(.subheadline.weight(.semibold)).foregroundStyle(Color.brandText)
+            Text(label).font(.caption2).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .cardStyle(padding: 0)
+    }
+
+    private func infoRow(icon: String, text: String) -> some View {
+        Label {
+            Text(text)
+        } icon: {
+            Image(systemName: icon).foregroundStyle(Color.brandAccent)
+        }
+        .font(.subheadline)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func participantsCard(for activity: Activity) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Participantes (\(activity.participantCount)/\(activity.capacity))")
+                .font(.headline)
+                .foregroundStyle(Color.brandText)
+            if participants.isEmpty {
+                Text("Todavía nadie se ha unido.").foregroundStyle(.secondary)
+            } else {
+                ForEach(participants) { participant in
+                    HStack(spacing: 10) {
+                        ZStack {
+                            Circle().fill(Color.brandAccent.opacity(0.15)).frame(width: 32, height: 32)
+                            if let urlString = participant.profile.avatarUrl, let url = URL(string: urlString), !urlString.isEmpty {
+                                AsyncImage(url: url) { image in
+                                    image.resizable().scaledToFill()
+                                } placeholder: {
+                                    participantInitials(participant)
+                                }
+                                .frame(width: 32, height: 32)
+                                .clipShape(Circle())
+                            } else {
+                                participantInitials(participant)
+                            }
+                        }
+                        Text(participant.profile.fullName)
+                    }
+                }
+            }
+        }
+        .cardStyle()
+    }
+
+    private func participantInitials(_ participant: Participant) -> some View {
+        Text(initials(for: participant.profile.fullName))
+            .font(.caption.weight(.bold))
+            .foregroundStyle(Color.brandAccent)
+    }
+
+    private func coordinationCard(link: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Coordinación", systemImage: "link").font(.headline).foregroundStyle(Color.brandText)
+            Text("Esto te lleva fuera de FITCOM para coordinar los detalles.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            if let url = URL(string: link) {
+                Link(link, destination: url)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(Color.brandAccent)
+            } else {
+                Text(link)
+            }
+        }
+        .cardStyle()
+    }
+
+    private func initials(for name: String) -> String {
+        let parts = name.split(separator: " ")
+        let letters = parts.prefix(2).compactMap { $0.first }
+        return String(letters).uppercased()
+    }
+
+    @ViewBuilder
+    private func actionBarContent(for activity: Activity) -> some View {
         let isOrganizer = authStore.userId == activity.organizerId
 
         if isOrganizer {
             if activity.status != .cancelada {
-                HStack {
+                HStack(spacing: 10) {
                     Button("Editar") { showEditSheet = true }
-                        .buttonStyle(.bordered)
-                    Button("Cancelar actividad", role: .destructive) { showCancelConfirmation = true }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.fitcomInk)
+                    Button("Cancelar") { showCancelConfirmation = true }
+                        .buttonStyle(.fitcomSecondary(tint: .red))
+                    Spacer()
                 }
+            } else {
+                calloutText("Esta actividad está cancelada.", icon: "xmark.circle.fill")
             }
         } else if !authStore.isSignedIn {
-            Text("Inicia sesión para unirte a esta actividad.")
-                .foregroundStyle(.secondary)
+            calloutBar("Inicia sesión para unirte a esta actividad.", icon: "lock.fill")
         } else if myParticipation != nil, activity.status != .cancelada, activity.computedStatus != .finalizada {
             // (US-10) No se puede salir de una actividad ya cancelada o finalizada.
-            Button("Salir de la actividad", role: .destructive) { showLeaveConfirmation = true }
-                .buttonStyle(.bordered)
-                .disabled(isPerformingAction)
-        } else if myParticipation != nil {
-            Text("Ya participaste en esta actividad.")
-                .foregroundStyle(.secondary)
-        } else if activity.canAcceptParticipants {
-            Button {
-                Task { await join() }
-            } label: {
-                if isPerformingAction { ProgressView() } else { Text("Unirme") }
+            HStack {
+                Label("Ya estás inscrito", systemImage: "checkmark.circle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.brandAccent)
+                Spacer()
+                Button("Salir") { showLeaveConfirmation = true }
+                    .buttonStyle(.fitcomSecondary(tint: .red))
+                    .disabled(isPerformingAction)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(isPerformingAction)
+        } else if myParticipation != nil {
+            calloutBar("Ya participaste en esta actividad.", icon: "checkmark.circle.fill")
+        } else if activity.canAcceptParticipants {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(max(activity.spotsLeft, 0)) lugares libres")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("de \(activity.capacity) totales")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button {
+                    Task { await join() }
+                } label: {
+                    if isPerformingAction { ProgressView().tint(.white) } else { Text("Unirme") }
+                }
+                .buttonStyle(.fitcomPrimary(disabled: isPerformingAction, fullWidth: false))
+                .disabled(isPerformingAction)
+            }
         } else {
-            Text("Esta actividad ya no acepta participantes.")
-                .foregroundStyle(.secondary)
+            calloutBar("Esta actividad ya no acepta participantes.", icon: "xmark.circle.fill")
         }
+    }
 
-        if authStore.isSignedIn && !isOrganizer {
-            Button("Reportar actividad") { showReportSheet = true }
-                .font(.footnote)
-                .foregroundStyle(.red)
+    private func calloutText(_ text: String, icon: String) -> some View {
+        Label(text, systemImage: icon)
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+    }
+
+    private func calloutBar(_ text: String, icon: String) -> some View {
+        HStack {
+            calloutText(text, icon: icon)
+            Spacer()
         }
     }
 

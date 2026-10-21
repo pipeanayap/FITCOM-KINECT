@@ -22,35 +22,51 @@ struct ReportsModerationView: View {
                     systemImage: "checkmark.shield"
                 )
             } else {
-                List(reports) { entry in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(entry.activity.title).font(.headline)
-                        Text("\(entry.activity.sport.capitalized) · \(entry.activity.zone)")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                        Text(entry.report.reason.label).fontWeight(.semibold)
-                        if let description = entry.report.description, !description.isEmpty {
-                            Text(description).font(.footnote)
-                        }
-                        if entry.activity.isHidden {
-                            Label("Actividad oculta", systemImage: "eye.slash").font(.footnote)
-                        }
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(reports) { entry in
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack {
+                                    Text(entry.activity.title).font(.headline)
+                                    Spacer()
+                                    Label(entry.report.reason.label, systemImage: "flag.fill")
+                                        .font(.caption.weight(.bold))
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(Color.red.opacity(0.12), in: Capsule())
+                                        .foregroundStyle(.red)
+                                }
+                                Text("\(entry.activity.sport.capitalized) · \(entry.activity.zone)")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                if let description = entry.report.description, !description.isEmpty {
+                                    Text(description).font(.subheadline)
+                                }
+                                if entry.activity.isHidden {
+                                    Label("Actividad oculta", systemImage: "eye.slash")
+                                        .font(.caption.weight(.medium))
+                                        .foregroundStyle(Color.brandWarning)
+                                }
 
-                        HStack {
-                            Button(entry.activity.isHidden ? "Restablecer" : "Ocultar actividad") {
-                                Task { await toggleHidden(for: entry) }
-                            }
-                            .buttonStyle(.bordered)
+                                HStack(spacing: 10) {
+                                    Button(entry.activity.isHidden ? "Restablecer" : "Ocultar actividad") {
+                                        Task { await toggleHidden(for: entry) }
+                                    }
+                                    .buttonStyle(.fitcomSecondary)
 
-                            Button("Marcar revisado") {
-                                Task { await markReviewed(entry.report.id) }
+                                    Button("Marcar revisado") {
+                                        Task { await markReviewed(entry.report.id) }
+                                    }
+                                    .buttonStyle(.fitcomSecondary)
+                                }
+                                .disabled(busyReportId == entry.id)
                             }
-                            .buttonStyle(.bordered)
+                            .cardStyle()
                         }
-                        .disabled(busyReportId == entry.id)
                     }
-                    .padding(.vertical, 4)
+                    .padding()
                 }
+                .background(Color.screenBackground)
                 .refreshable { await load() }
             }
         }

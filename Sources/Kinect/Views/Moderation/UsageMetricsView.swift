@@ -7,6 +7,8 @@ struct UsageMetricsView: View {
     @State private var isLoading = true
     @State private var errorMessage: String?
 
+    private let columns = [GridItem(.flexible()), GridItem(.flexible())]
+
     var body: some View {
         Group {
             if isLoading {
@@ -14,41 +16,63 @@ struct UsageMetricsView: View {
             } else if let errorMessage {
                 ErrorStateView(message: errorMessage) { await load() }
             } else if let metrics {
-                List {
-                    Section("Uso general") {
-                        metricRow("Actividades creadas", metrics.activitiesCreated)
-                        metricRow("Actividades con participantes", metrics.activitiesWithParticipants)
-                        metricRow("Inscripciones totales", metrics.totalJoins)
-                        metricRow("Actividades que llegaron al cupo", metrics.activitiesAtCapacity)
-                        metricRow("Actividades canceladas", metrics.activitiesCancelled)
-                        metricRow("Salidas de participantes", metrics.participationsLeft)
-                    }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        SectionHeaderView(title: "Uso general")
+                        LazyVGrid(columns: columns, spacing: 12) {
+                            statTile("Creadas", metrics.activitiesCreated, icon: "plus.circle.fill", color: .brandAccent)
+                            statTile("Con participantes", metrics.activitiesWithParticipants, icon: "person.2.fill", color: .brandAccent)
+                            statTile("Inscripciones", metrics.totalJoins, icon: "checkmark.circle.fill", color: .brandAccent)
+                            statTile("Llegaron al cupo", metrics.activitiesAtCapacity, icon: "chart.bar.fill", color: .brandWarning)
+                            statTile("Canceladas", metrics.activitiesCancelled, icon: "xmark.circle.fill", color: .red)
+                            statTile("Salidas", metrics.participationsLeft, icon: "arrow.uturn.left.circle.fill", color: .secondary)
+                        }
 
-                    Section("Resultados de encuestas (\(feedback.count))") {
+                        SectionHeaderView(title: "Resultados de encuestas (\(feedback.count))")
                         if feedback.isEmpty {
-                            Text("Todavía no hay respuestas.").foregroundStyle(.secondary)
+                            Text("Todavía no hay respuestas.")
+                                .foregroundStyle(.secondary)
+                                .cardStyle()
                         } else {
                             let happened = feedback.filter(\.activityHappened).count
                             let metPeople = feedback.filter { $0.metPeople == true }.count
-                            let avgRating = feedback.compactMap(\.easeRating).map(Double.init).reduce(0, +)
-                                / Double(max(feedback.compactMap(\.easeRating).count, 1))
-                            metricRow("Dicen que sí se realizó", happened)
-                            metricRow("Dicen que conocieron gente", metPeople)
-                            Text("Facilidad promedio: \(avgRating, specifier: "%.1f")/5")
+                            let ratings = feedback.compactMap(\.easeRating)
+                            let avgRating = ratings.map(Double.init).reduce(0, +) / Double(max(ratings.count, 1))
+
+                            VStack(spacing: 10) {
+                                metricRow("Dicen que sí se realizó", "\(happened)")
+                                Divider()
+                                metricRow("Dicen que conocieron gente", "\(metPeople)")
+                                Divider()
+                                metricRow("Facilidad promedio", String(format: "%.1f/5", avgRating))
+                            }
+                            .cardStyle()
                         }
                     }
+                    .padding()
                 }
+                .background(Color.screenBackground)
                 .refreshable { await load() }
             }
         }
         .task { await load() }
     }
 
-    private func metricRow(_ label: String, _ value: Int) -> some View {
+    private func statTile(_ label: String, _ value: Int, icon: String, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: icon).font(.title3).foregroundStyle(color)
+            Text("\(value)").font(.title.bold())
+            Text(label).font(.caption).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardStyle()
+    }
+
+    private func metricRow(_ label: String, _ value: String) -> some View {
         HStack {
             Text(label)
             Spacer()
-            Text("\(value)").fontWeight(.semibold)
+            Text(value).fontWeight(.semibold).foregroundStyle(Color.brandAccent)
         }
     }
 

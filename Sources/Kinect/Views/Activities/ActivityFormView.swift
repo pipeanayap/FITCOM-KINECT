@@ -1,3 +1,4 @@
+import MapKit
 import SwiftUI
 
 /// Formulario para crear (US-03) o editar (US-11) una actividad. Comparte el
@@ -15,11 +16,14 @@ struct ActivityFormView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    @State var sport = ""
+    @State var sport = SportVisuals.canonicalSports[0]
     @State var title = ""
     @State var description = ""
     @State var scheduledAt = Date().addingTimeInterval(3600)
     @State var zone = ""
+    @State var latitude: Double?
+    @State var longitude: Double?
+    @State private var showPlacePicker = false
     @State var level: ActivityLevel = .cualquierNivel
     @State var capacityText = "4"
     @State var estimatedCostText = ""
@@ -37,13 +41,33 @@ struct ActivityFormView: View {
                     if isEditing {
                         LabeledContent("Deporte", value: sport.capitalized)
                     } else {
-                        TextField("Deporte", text: $sport)
+                        Picker("Deporte", selection: $sport) {
+                            ForEach(SportVisuals.canonicalSports, id: \.self) { Text($0).tag($0) }
+                        }
                     }
                     TextField("Título", text: $title)
                     DatePicker(
                         "Fecha y hora", selection: $scheduledAt, in: Date()..., displayedComponents: [.date, .hourAndMinute]
                     )
-                    TextField("Zona / ubicación", text: $zone)
+                    Button {
+                        showPlacePicker = true
+                    } label: {
+                        HStack {
+                            Label(zone.isEmpty ? "Elegir ubicación" : zone, systemImage: "mappin.and.ellipse")
+                                .foregroundStyle(zone.isEmpty ? Color.brandAccent : Color.brandText)
+                                .lineLimit(2)
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    if let latitude, let longitude {
+                        MapPreview(
+                            coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+                            title: zone
+                        )
+                        .frame(height: 140)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
                     Picker("Nivel", selection: $level) {
                         ForEach(ActivityLevel.allCases) { Text($0.label).tag($0) }
                     }
@@ -94,6 +118,14 @@ struct ActivityFormView: View {
                 }
             }
         }
+        .tint(.brandAccent)
+        .sheet(isPresented: $showPlacePicker) {
+            PlacePickerView { place in
+                zone = place.name
+                latitude = place.latitude
+                longitude = place.longitude
+            }
+        }
     }
 
     private var isEditing: Bool {
@@ -108,7 +140,7 @@ struct ActivityFormView: View {
     }
 
     private var canSave: Bool {
-        guard !sport.isEmpty, !title.isEmpty, !zone.isEmpty, let capacity, capacity >= 1 else {
+        guard !sport.isEmpty, !title.isEmpty, !zone.isEmpty, isEditing || latitude != nil, let capacity, capacity >= 1 else {
             return false
         }
         guard scheduledAt > Date() else { return false }
@@ -139,7 +171,9 @@ struct ActivityFormView: View {
                         zone: zone,
                         level: level,
                         capacity: capacity,
-                        estimatedCost: estimatedCost
+                        estimatedCost: estimatedCost,
+                        latitude: latitude,
+                        longitude: longitude
                     )
                 )
             case .edit(_, let edit):
@@ -153,6 +187,8 @@ struct ActivityFormView: View {
                         level: level,
                         capacity: capacity,
                         estimatedCost: estimatedCost,
+                        latitude: latitude,
+                        longitude: longitude,
                         coordinationLink: coordinationLink.isEmpty ? nil : coordinationLink
                     )
                 )
@@ -181,6 +217,8 @@ extension ActivityFormView {
         _description = State(initialValue: activity.description ?? "")
         _scheduledAt = State(initialValue: activity.scheduledAt)
         _zone = State(initialValue: activity.zone)
+        _latitude = State(initialValue: activity.latitude)
+        _longitude = State(initialValue: activity.longitude)
         _level = State(initialValue: activity.level)
         _capacityText = State(initialValue: String(activity.capacity))
         _estimatedCostText = State(initialValue: activity.estimatedCost.map { String($0) } ?? "")

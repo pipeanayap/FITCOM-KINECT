@@ -21,7 +21,22 @@ struct AuthView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: 28) {
+                    VStack(spacing: 10) {
+                        ZStack {
+                            Circle().fill(Color.brandAccent.gradient).frame(width: 72, height: 72)
+                            Image(systemName: "figure.run")
+                                .font(.system(size: 30, weight: .semibold))
+                                .foregroundStyle(.white)
+                        }
+                        Text("FITCOM")
+                            .font(.largeTitle.bold())
+                        Text("Encuentra gente para moverte")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.top, 24)
+
                     Picker("Modo", selection: $mode) {
                         ForEach(Mode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                     }
@@ -43,34 +58,35 @@ struct AuthView: View {
                             .textContentType(mode == .signUp ? .newPassword : .password)
                             .textFieldStyle(.roundedBorder)
                     }
+                    .cardStyle()
 
                     if let errorMessage {
-                        Text(errorMessage)
-                            .foregroundStyle(.red)
+                        Label(errorMessage, systemImage: "exclamationmark.circle.fill")
                             .font(.footnote)
+                            .foregroundStyle(.red)
                     }
                     if let confirmationMessage {
-                        Text(confirmationMessage)
-                            .foregroundStyle(.secondary)
+                        Label(confirmationMessage, systemImage: "envelope.badge.fill")
                             .font(.footnote)
+                            .foregroundStyle(Color.brandAccent)
                     }
 
                     Button {
                         Task { await submit() }
                     } label: {
                         if isLoading {
-                            ProgressView()
+                            ProgressView().tint(.white)
                         } else {
                             Text(mode.rawValue)
-                                .frame(maxWidth: .infinity)
                         }
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.fitcomPrimary(disabled: !canSubmit || isLoading))
                     .disabled(!canSubmit || isLoading)
                 }
                 .padding()
             }
-            .navigationTitle("FITCOM")
+            .background(Color.screenBackground)
+            .navigationBarTitleDisplayMode(.inline)
             .onChange(of: mode) {
                 errorMessage = nil
                 confirmationMessage = nil

@@ -51,6 +51,7 @@ struct ReportActivityView: View {
                 }
             }
         }
+        .tint(.brandAccent)
     }
 
     private func send() async {

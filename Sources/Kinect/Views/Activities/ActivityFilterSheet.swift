@@ -11,6 +11,7 @@ struct ActivityFilterSheet: View {
     @State private var useDateRange: Bool
     @State private var fromDate: Date
     @State private var toDate: Date
+    @State private var maxDistanceKm: Double?
 
     init(filter: Binding<ActivityFilter>) {
         _filter = filter
@@ -20,6 +21,7 @@ struct ActivityFilterSheet: View {
         _level = State(initialValue: current.level)
         _useDateRange = State(initialValue: current.fromDate != nil || current.toDate != nil)
         _fromDate = State(initialValue: current.fromDate ?? Date())
+        _maxDistanceKm = State(initialValue: current.maxDistanceKm)
         _toDate = State(initialValue: current.toDate ?? Date().addingTimeInterval(7 * 86400))
     }
 
@@ -27,8 +29,18 @@ struct ActivityFilterSheet: View {
         NavigationStack {
             Form {
                 Section("Deporte y zona") {
-                    TextField("Deporte", text: $sport)
+                    Picker("Deporte", selection: $sport) {
+                        Text("Cualquiera").tag("")
+                        ForEach(SportVisuals.canonicalSports, id: \.self) { Text($0).tag($0) }
+                    }
                     TextField("Zona", text: $zone)
+                }
+
+                Section("Distancia") {
+                    Picker("Radio desde mi ubicación", selection: $maxDistanceKm) {
+                        Text("Sin límite").tag(Double?.none)
+                        ForEach([2.0, 5.0, 10.0, 25.0], id: \.self) { Text("\(Int($0)) km").tag(Double?.some($0)) }
+                    }
                 }
 
                 Section("Nivel") {
@@ -59,6 +71,7 @@ struct ActivityFilterSheet: View {
                 }
             }
         }
+        .tint(.brandAccent)
     }
 
     private func apply() {
@@ -67,7 +80,8 @@ struct ActivityFilterSheet: View {
             zone: zone.isEmpty ? nil : zone,
             level: level,
             fromDate: useDateRange ? fromDate.startOfDay : nil,
-            toDate: useDateRange ? toDate.endOfDay : nil
+            toDate: useDateRange ? toDate.endOfDay : nil,
+            maxDistanceKm: maxDistanceKm
         )
         dismiss()
     }
