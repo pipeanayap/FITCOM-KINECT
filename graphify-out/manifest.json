@@ -1,0 +1,254 @@
+{
+  ".bsp/xtool.json": {
+    "mtime": 1792470959.1171732,
+    "seen": 1792532414.26495,
+    "ast_hash": "668b0206567537b1bab1052941bacf13",
+    "semantic_hash": "668b0206567537b1bab1052941bacf13"
+  },
+  "Package.swift": {
+    "mtime": 1792507904.9718835,
+    "seen": 1792532414.2649581,
+    "ast_hash": "88c8c4be5a52bd210d1542e7281b6a07",
+    "semantic_hash": "88c8c4be5a52bd210d1542e7281b6a07"
+  },
+  "Sources/Kinect/KinectApp.swift": {
+    "mtime": 1792509468.9578948,
+    "seen": 1792532414.2649608,
+    "ast_hash": "41a0e598f70a91e3038fba9a2107ea47",
+    "semantic_hash": "41a0e598f70a91e3038fba9a2107ea47"
+  },
+  "Sources/Kinect/Models/Activity.swift": {
+    "mtime": 1792509248.1091137,
+    "seen": 1792532414.2649622,
+    "ast_hash": "75e5912eeeb38fdd48f2a2311fb84b4f",
+    "semantic_hash": "75e5912eeeb38fdd48f2a2311fb84b4f"
+  },
+  "Sources/Kinect/Models/ActivityFeedback.swift": {
+    "mtime": 1792508666.2083187,
+    "seen": 1792532414.2649639,
+    "ast_hash": "861f694506af5014a685ee8f09e65521",
+    "semantic_hash": "861f694506af5014a685ee8f09e65521"
+  },
+  "Sources/Kinect/Models/ActivityFilter.swift": {
+    "mtime": 1792508670.7985165,
+    "seen": 1792532414.2649653,
+    "ast_hash": "ac165362acf3ee950882f50075e594c3",
+    "semantic_hash": "ac165362acf3ee950882f50075e594c3"
+  },
+  "Sources/Kinect/Models/ActivityReport.swift": {
+    "mtime": 1792508656.4694629,
+    "seen": 1792532414.264967,
+    "ast_hash": "84910e7ecc86f6b152a0fac494ffa5d1",
+    "semantic_hash": "84910e7ecc86f6b152a0fac494ffa5d1"
+  },
+  "Sources/Kinect/Models/ModerationAction.swift": {
+    "mtime": 1792508661.8443754,
+    "seen": 1792532414.2649684,
+    "ast_hash": "e3f639f8c67663207e7ac0f799db3894",
+    "semantic_hash": "e3f639f8c67663207e7ac0f799db3894"
+  },
+  "Sources/Kinect/Models/Participation.swift": {
+    "mtime": 1792508813.1869535,
+    "seen": 1792532414.2649698,
+    "ast_hash": "13a9cfd52a216ccca4198323dac961f4",
+    "semantic_hash": "13a9cfd52a216ccca4198323dac961f4"
+  },
+  "Sources/Kinect/Models/Profile.swift": {
+    "mtime": 1792508600.385753,
+    "seen": 1792532414.264971,
+    "ast_hash": "ee74ba542fb416096b64af60e89d7419",
+    "semantic_hash": "ee74ba542fb416096b64af60e89d7419"
+  },
+  "Sources/Kinect/Services/ActivityService.swift": {
+    "mtime": 1792509256.8260841,
+    "seen": 1792532414.2649722,
+    "ast_hash": "ef09a68ce37a7e0b6e2442dd4972c73d",
+    "semantic_hash": "ef09a68ce37a7e0b6e2442dd4972c73d"
+  },
+  "Sources/Kinect/Services/AuthStore.swift": {
+    "mtime": 1792508993.5692396,
+    "seen": 1792532414.264974,
+    "ast_hash": "a1aa0cfdc3d4e6de38f94da269ffd651",
+    "semantic_hash": "a1aa0cfdc3d4e6de38f94da269ffd651"
+  },
+  "Sources/Kinect/Services/FeedbackService.swift": {
+    "mtime": 1792508869.567421,
+    "seen": 1792532414.2649753,
+    "ast_hash": "ad646de32c4349543693117d3b74711d",
+    "semantic_hash": "ad646de32c4349543693117d3b74711d"
+  },
+  "Sources/Kinect/Services/MetricsService.swift": {
+    "mtime": 1792508877.403117,
+    "seen": 1792532414.2649767,
+    "ast_hash": "77c92d0da813e187ec41ea111edb3e02",
+    "semantic_hash": "77c92d0da813e187ec41ea111edb3e02"
+  },
+  "Sources/Kinect/Services/ModerationService.swift": {
+    "mtime": 1792508865.2154138,
+    "seen": 1792532414.2649782,
+    "ast_hash": "94d8c0a01d15d91bc3603d2ee396bfaa",
+    "semantic_hash": "94d8c0a01d15d91bc3603d2ee396bfaa"
+  },
+  "Sources/Kinect/Services/ParticipationService.swift": {
+    "mtime": 1792508823.566818,
+    "seen": 1792532414.2649794,
+    "ast_hash": "bc75c6c1202ea5d5cad9194a6f6c1bf7",
+    "semantic_hash": "bc75c6c1202ea5d5cad9194a6f6c1bf7"
+  },
+  "Sources/Kinect/Services/ProfileService.swift": {
+    "mtime": 1792508725.1031907,
+    "seen": 1792532414.2649808,
+    "ast_hash": "e96d3240c978ccf1301b689e44cdaa01",
+    "semantic_hash": "e96d3240c978ccf1301b689e44cdaa01"
+  },
+  "Sources/Kinect/Services/ReportService.swift": {
+    "mtime": 1792508829.2730472,
+    "seen": 1792532414.264982,
+    "ast_hash": "9f2cbff4d5eb47f682339c5f3dcc8264",
+    "semantic_hash": "9f2cbff4d5eb47f682339c5f3dcc8264"
+  },
+  "Sources/Kinect/Supabase/SupabaseManager.swift": {
+    "mtime": 1792508951.195973,
+    "seen": 1792532414.2649832,
+    "ast_hash": "53ade2b457b079a26bb0e3079751c0ba",
+    "semantic_hash": "53ade2b457b079a26bb0e3079751c0ba"
+  },
+  "Sources/Kinect/Theme/Theme.swift": {
+    "mtime": 1792531426.0444987,
+    "seen": 1792532414.2649846,
+    "ast_hash": "8ad8a3b7d230a7ef73fed99dddd6b7d2",
+    "semantic_hash": "8ad8a3b7d230a7ef73fed99dddd6b7d2"
+  },
+  "Sources/Kinect/Views/Activities/ActivityDetailView.swift": {
+    "mtime": 1792531713.328849,
+    "seen": 1792532414.2649858,
+    "ast_hash": "908a36d7344de2c2daa26ee097b6b7da",
+    "semantic_hash": "908a36d7344de2c2daa26ee097b6b7da"
+  },
+  "Sources/Kinect/Views/Activities/ActivityFilterSheet.swift": {
+    "mtime": 1792531639.32607,
+    "seen": 1792532414.2649872,
+    "ast_hash": "6714dbb1615c670327b43f1e352c62aa",
+    "semantic_hash": "6714dbb1615c670327b43f1e352c62aa"
+  },
+  "Sources/Kinect/Views/Activities/ActivityFormView.swift": {
+    "mtime": 1792531639.3129077,
+    "seen": 1792532414.264989,
+    "ast_hash": "7c4ed310688e29c632f9d6f8403b381d",
+    "semantic_hash": "7c4ed310688e29c632f9d6f8403b381d"
+  },
+  "Sources/Kinect/Views/Activities/ActivityListView.swift": {
+    "mtime": 1792531533.6698701,
+    "seen": 1792532414.26499,
+    "ast_hash": "46d30fd137330f0ae69e4fb096b5ef5c",
+    "semantic_hash": "46d30fd137330f0ae69e4fb096b5ef5c"
+  },
+  "Sources/Kinect/Views/Activities/ActivityRowView.swift": {
+    "mtime": 1792531553.9400067,
+    "seen": 1792532414.2649915,
+    "ast_hash": "205f7ad5ab8e60d2928bc1bd5f3c889c",
+    "semantic_hash": "205f7ad5ab8e60d2928bc1bd5f3c889c"
+  },
+  "Sources/Kinect/Views/Activities/CreateActivityView.swift": {
+    "mtime": 1792530253.115818,
+    "seen": 1792532414.2649927,
+    "ast_hash": "64d0906bb89cf3731de4fddd847c2fc9",
+    "semantic_hash": "64d0906bb89cf3731de4fddd847c2fc9"
+  },
+  "Sources/Kinect/Views/Activities/FeaturedActivityCard.swift": {
+    "mtime": 1792531515.4593353,
+    "seen": 1792532414.2649941,
+    "ast_hash": "efec5ab2602815f97ab71dcd0d050333",
+    "semantic_hash": "efec5ab2602815f97ab71dcd0d050333"
+  },
+  "Sources/Kinect/Views/Activities/ReportActivityView.swift": {
+    "mtime": 1792531639.316444,
+    "seen": 1792532414.2649953,
+    "ast_hash": "b105156120facea9806dc8992a8db6cf",
+    "semantic_hash": "b105156120facea9806dc8992a8db6cf"
+  },
+  "Sources/Kinect/Views/Auth/AuthView.swift": {
+    "mtime": 1792531639.3301456,
+    "seen": 1792532414.2649965,
+    "ast_hash": "bb5bde944404a5c4cf1d91d7167ed757",
+    "semantic_hash": "bb5bde944404a5c4cf1d91d7167ed757"
+  },
+  "Sources/Kinect/Views/Moderation/ModerationView.swift": {
+    "mtime": 1792531639.3100033,
+    "seen": 1792532414.264998,
+    "ast_hash": "2da7e447ebc5726f2a97e7f6a7ff9faf",
+    "semantic_hash": "2da7e447ebc5726f2a97e7f6a7ff9faf"
+  },
+  "Sources/Kinect/Views/Moderation/ReportsModerationView.swift": {
+    "mtime": 1792530282.5929716,
+    "seen": 1792532414.2649992,
+    "ast_hash": "a75dc15f9f8553a327e8cc980801a73f",
+    "semantic_hash": "a75dc15f9f8553a327e8cc980801a73f"
+  },
+  "Sources/Kinect/Views/Moderation/UsageMetricsView.swift": {
+    "mtime": 1792531639.3279989,
+    "seen": 1792532414.2650008,
+    "ast_hash": "c8f23d1c7417f538d025af7fa22a5bca",
+    "semantic_hash": "c8f23d1c7417f538d025af7fa22a5bca"
+  },
+  "Sources/Kinect/Views/MyActivities/ActivityFeedbackView.swift": {
+    "mtime": 1792531639.332938,
+    "seen": 1792532414.265002,
+    "ast_hash": "f4a3c9dd87ee112530254cae4f823365",
+    "semantic_hash": "f4a3c9dd87ee112530254cae4f823365"
+  },
+  "Sources/Kinect/Views/MyActivities/MyActivitiesView.swift": {
+    "mtime": 1792530125.708666,
+    "seen": 1792532414.2650034,
+    "ast_hash": "53d3f7e4fef2add1ba6c73e18442dcd8",
+    "semantic_hash": "53d3f7e4fef2add1ba6c73e18442dcd8"
+  },
+  "Sources/Kinect/Views/Profile/ProfileView.swift": {
+    "mtime": 1792531492.3459806,
+    "seen": 1792532414.2650049,
+    "ast_hash": "1679836c188bb41a34bca2427f8ac912",
+    "semantic_hash": "1679836c188bb41a34bca2427f8ac912"
+  },
+  "Sources/Kinect/Views/RootView.swift": {
+    "mtime": 1792531468.4827251,
+    "seen": 1792532414.265006,
+    "ast_hash": "12367b9e0c592c1fa5d55ba4cb2abe76",
+    "semantic_hash": "12367b9e0c592c1fa5d55ba4cb2abe76"
+  },
+  "Sources/Kinect/Views/Shared/FitcomTabBar.swift": {
+    "mtime": 1792531459.6421592,
+    "seen": 1792532414.2650073,
+    "ast_hash": "cc89d65e7f03bd570e57db174a72e2ff",
+    "semantic_hash": "cc89d65e7f03bd570e57db174a72e2ff"
+  },
+  "Sources/Kinect/Views/Shared/StateViews.swift": {
+    "mtime": 1792531639.320452,
+    "seen": 1792532414.265009,
+    "ast_hash": "81012b8351aedc4d20c26677e18b9330",
+    "semantic_hash": "81012b8351aedc4d20c26677e18b9330"
+  },
+  "supabase/migrations/20261020090000_initial_schema.sql": {
+    "mtime": 1792509581.9985657,
+    "seen": 1792532414.26501,
+    "ast_hash": "1b13512ca71eb498784df46b1adb1131",
+    "semantic_hash": "1b13512ca71eb498784df46b1adb1131"
+  },
+  "supabase/seed.sql": {
+    "mtime": 1792507886.629347,
+    "seen": 1792532414.2650115,
+    "ast_hash": "ca13259acb7750a721a39661c41e73a0",
+    "semantic_hash": "ca13259acb7750a721a39661c41e73a0"
+  },
+  "docs/SETUP.md": {
+    "mtime": 1792508074.776858,
+    "seen": 1792532414.2650127,
+    "ast_hash": "bfedf016cfd4f87c626c6517c7757ac2",
+    "semantic_hash": "bfedf016cfd4f87c626c6517c7757ac2"
+  },
+  "xtool.yml": {
+    "mtime": 1792470958.4291735,
+    "seen": 1792532414.265014,
+    "ast_hash": "b13de63cbbbbcc76b081e5848059478e",
+    "semantic_hash": "b13de63cbbbbcc76b081e5848059478e"
+  }
+}

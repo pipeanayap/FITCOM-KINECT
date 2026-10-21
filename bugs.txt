@@ -1,0 +1,15 @@
+El scroll esta roto, atraviesa el navbar y estorba, aparte, el scroll se regresa, 
+no se queda hecho el scroll para que puedas ver
+esconder un poco los botones de cancelar, poner unos 3 puntos y ponerlo ahi
+
+poner hightlight de los filtros para ver cual esta seleccionado
+
+si voy a poner una barra de busqueda, que permita buscar, no que abra un menu de 
+filtros
+
+ponerlos por aparte, uno de busqueda y otro de filtro
+
+si te vas a perfil y sleccionas alguno de los campos para iniciar sesion pero
+ luego acompletas con el face id, despues de iniciar no sale tu info, porque 
+ nor einicia los estados
+
