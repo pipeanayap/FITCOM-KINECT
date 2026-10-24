@@ -1,3 +1,4 @@
 version: 1
 bundleID: com.example.Kinect
 infoPath: Info.plist
+iconPath: Resources/AppIcon.png
