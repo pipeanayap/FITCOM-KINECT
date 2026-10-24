@@ -13,3 +13,6 @@ DerivedData/
 Sources/Kinect/Supabase/Secrets.swift
 supabase/.temp/
 supabase/.branches/
+
+# Grafo generado por graphify (se regenera con /graphify)
+graphify-out/
