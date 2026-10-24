@@ -23,6 +23,9 @@ struct ActivityFormView: View {
     @State var zone = ""
     @State var latitude: Double?
     @State var longitude: Double?
+    @State var placeId: UUID?
+    @State var groupId: UUID?
+    @State private var myGroups: [CommunityGroup] = []
     @State private var showPlacePicker = false
     @State var level: ActivityLevel = .cualquierNivel
     @State var capacityText = "4"
@@ -70,6 +73,13 @@ struct ActivityFormView: View {
                     }
                     Picker("Nivel", selection: $level) {
                         ForEach(ActivityLevel.allCases) { Text($0.label).tag($0) }
+                    }
+                    // Publicar dentro de un grupo propio (SCRUM-41); sólo al crear.
+                    if !isEditing && !myGroups.isEmpty {
+                        Picker("Grupo", selection: $groupId) {
+                            Text("Ninguno").tag(UUID?.none)
+                            ForEach(myGroups) { Text($0.name).tag(UUID?.some($0.id)) }
+                        }
                     }
                 }
 
@@ -119,11 +129,13 @@ struct ActivityFormView: View {
             }
         }
         .tint(.brandAccent)
+        .task { myGroups = (try? await GroupService.myGroups(userId: organizerId)) ?? [] }
         .sheet(isPresented: $showPlacePicker) {
             PlacePickerView { place in
                 zone = place.name
                 latitude = place.latitude
                 longitude = place.longitude
+                placeId = place.placeId
             }
         }
     }
@@ -173,7 +185,9 @@ struct ActivityFormView: View {
                         capacity: capacity,
                         estimatedCost: estimatedCost,
                         latitude: latitude,
-                        longitude: longitude
+                        longitude: longitude,
+                        placeId: placeId,
+                        groupId: groupId
                     )
                 )
             case .edit(_, let edit):
@@ -189,6 +203,8 @@ struct ActivityFormView: View {
                         estimatedCost: estimatedCost,
                         latitude: latitude,
                         longitude: longitude,
+                        placeId: placeId,
+                        groupId: groupId,
                         coordinationLink: coordinationLink.isEmpty ? nil : coordinationLink
                     )
                 )
@@ -219,9 +235,53 @@ extension ActivityFormView {
         _zone = State(initialValue: activity.zone)
         _latitude = State(initialValue: activity.latitude)
         _longitude = State(initialValue: activity.longitude)
+        _placeId = State(initialValue: activity.placeId)
+        _groupId = State(initialValue: activity.groupId)
         _level = State(initialValue: activity.level)
         _capacityText = State(initialValue: String(activity.capacity))
         _estimatedCostText = State(initialValue: activity.estimatedCost.map { String($0) } ?? "")
         _coordinationLink = State(initialValue: currentCoordinationLink ?? "")
+    }
+}
+
+extension ActivityFormView {
+    /// Crear una actividad con un lugar curado ya elegido (SCRUM-40): precarga
+    /// zona, coordenadas y, si coincide con la lista de deportes, el deporte.
+    init(
+        organizerId: UUID, place: Place, saveAction: SaveAction, onSaved: @escaping (Activity) -> Void
+    ) {
+        self.organizerId = organizerId
+        self.saveAction = saveAction
+        self.onSaved = onSaved
+        _zone = State(initialValue: place.name)
+        _latitude = State(initialValue: place.latitude)
+        _longitude = State(initialValue: place.longitude)
+        _placeId = State(initialValue: place.id)
+        if let sport = place.sports.compactMap({ placeSport in
+            SportVisuals.canonicalSports.first {
+                $0.compare(placeSport, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
+            }
+        }).first {
+            _sport = State(initialValue: sport)
+        }
+    }
+}
+
+extension ActivityFormView {
+    /// Crear una actividad dentro de un grupo ya elegido (SCRUM-41).
+    init(
+        organizerId: UUID, group: CommunityGroup, saveAction: SaveAction,
+        onSaved: @escaping (Activity) -> Void
+    ) {
+        self.organizerId = organizerId
+        self.saveAction = saveAction
+        self.onSaved = onSaved
+        _groupId = State(initialValue: group.id)
+        _myGroups = State(initialValue: [group])
+        if let sport = SportVisuals.canonicalSports.first(where: {
+            $0.compare(group.sport ?? "", options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
+        }) {
+            _sport = State(initialValue: sport)
+        }
     }
 }

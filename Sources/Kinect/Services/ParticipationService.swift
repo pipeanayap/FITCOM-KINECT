@@ -47,7 +47,10 @@ enum ParticipationService {
             .value
     }
 
-    /// Actividades a las que el usuario se ha unido (US-09). Se resuelve en
+    /// Actividades a las que el usuario se ha unido (US-09). Sólo cuentan las
+    /// inscripciones activas: cada vez que alguien sale y vuelve a unirse se
+    /// guarda una fila nueva (historial, US-17), así que sin este filtro la
+    /// misma actividad aparecería una vez por cada entrada. Se resuelve en
     /// dos pasos (participaciones, luego cada actividad) para no depender de
     /// un embed de PostgREST a través de la vista pública que no pude probar.
     static func joined(userId: UUID) async throws -> [MyParticipation] {
@@ -55,6 +58,7 @@ enum ParticipationService {
             .from("participations")
             .select()
             .eq("user_id", value: userId)
+            .eq("status", value: ParticipationStatus.activa.rawValue)
             .order("joined_at", ascending: false)
             .execute()
             .value

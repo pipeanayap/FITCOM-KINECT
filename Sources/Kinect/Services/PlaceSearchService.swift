@@ -7,6 +7,8 @@ struct PickedPlace: Equatable {
     var name: String
     var latitude: Double
     var longitude: Double
+    /// Sólo si es un lugar curado de FITCOM (SCRUM-40); `nil` para lugares de MapKit.
+    var placeId: UUID?
 }
 
 struct PlaceSuggestion: Identifiable, Equatable {

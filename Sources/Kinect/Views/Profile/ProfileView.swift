@@ -1,15 +1,21 @@
 import SwiftUI
 
-/// Perfil básico: nombre, zona e intereses deportivos (US-02). Desde aquí
-/// los administradores entran al panel de moderación (US-15).
+/// Editar el perfil propio (US-02, SCRUM-51): foto desde la galería, nombre,
+/// @usuario, bio, zona e intereses por selección. Cerrar sesión y Moderación
+/// viven en ``SettingsView``.
 struct ProfileView: View {
     @Environment(AuthStore.self) private var authStore
+    @Environment(\.dismiss) private var dismiss
 
     @State private var fullName = ""
+    @State private var username = ""
+    @State private var bio = ""
     @State private var zone = ""
-    @State private var sportsInterestsText = ""
+    @State private var interests: Set<String> = []
     @State private var avatarUrl = ""
     @State private var isSaving = false
+    @State private var isUploading = false
+    @State private var showPicker = false
     @State private var errorMessage: String?
     @State private var didLoadFromProfile = false
 
@@ -19,49 +25,51 @@ struct ProfileView: View {
                 Section {
                     VStack(spacing: 10) {
                         ZStack {
-                            Circle().fill(Color.brandAccent.opacity(0.15)).frame(width: 88, height: 88)
+                            Circle().fill(Color.brandAccent.opacity(0.15)).frame(width: 92, height: 92)
                             if let url = URL(string: avatarUrl), !avatarUrl.isEmpty {
-                                AsyncImage(url: url) { image in
-                                    image.resizable().scaledToFill()
-                                } placeholder: {
-                                    avatarInitials
-                                }
-                                .frame(width: 88, height: 88)
-                                .clipShape(Circle())
+                                CachedAsyncImage(url: url) { avatarInitials }
+                                    .frame(width: 92, height: 92)
+                                    .clipShape(Circle())
                             } else {
                                 avatarInitials
                             }
+                            if isUploading { ProgressView().tint(.brandAccent) }
                         }
-                        Text(fullName.isEmpty ? "Tu perfil" : fullName).font(.title3.bold())
-                        if let zone = authStore.profile?.zone, !zone.isEmpty {
-                            Label(zone, systemImage: "mappin.and.ellipse")
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
+                        Button("Cambiar foto") { showPicker = true }
+                            .font(.subheadline.weight(.semibold))
+                            .disabled(isUploading)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
                 }
                 .listRowBackground(Color.clear)
 
-                if authStore.isAdmin {
-                    Section {
-                        NavigationLink {
-                            ModerationView()
-                        } label: {
-                            Label("Panel de moderación", systemImage: "shield.fill")
-                                .foregroundStyle(Color.brandAccent)
-                        }
-                    }
-                }
-
                 Section("Datos básicos") {
                     TextField("Nombre", text: $fullName)
+                    HStack(spacing: 2) {
+                        Text("@").foregroundStyle(.secondary)
+                        TextField("usuario", text: $username)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                    }
+                    TextField("Bio (cuéntale algo a la comunidad)", text: $bio, axis: .vertical)
+                        .lineLimit(2...4)
+                    Text("\(bio.count)/160")
+                        .font(.caption)
+                        .foregroundStyle(bio.count > 160 ? .red : .secondary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                     TextField("Zona de referencia", text: $zone)
-                    TextField("Deportes de interés (separados por coma)", text: $sportsInterestsText)
-                    TextField("URL de foto de perfil (opcional)", text: $avatarUrl)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
+                }
+
+                Section("Intereses") {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 8)], alignment: .leading, spacing: 8) {
+                        ForEach(SportVisuals.canonicalSports, id: \.self) { sport in
+                            FilterChip(label: sport, isSelected: interests.contains(sport)) {
+                                if interests.contains(sport) { interests.remove(sport) } else { interests.insert(sport) }
+                            }
+                        }
+                    }
+                    .padding(.vertical, 4)
                 }
 
                 if let errorMessage {
@@ -70,37 +78,36 @@ struct ProfileView: View {
                     }
                 }
 
-                Section {
-                    Button {
-                        Task { await save() }
-                    } label: {
-                        HStack {
-                            Spacer()
-                            if isSaving {
-                                ProgressView().tint(.white)
-                            } else {
-                                Text("Guardar cambios")
-                            }
-                            Spacer()
-                        }
-                    }
-                    .buttonStyle(.fitcomPrimary(disabled: fullName.isEmpty || isSaving))
-                    .disabled(fullName.isEmpty || isSaving)
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets())
-                }
-
-                Section {
-                    Button("Cerrar sesión", role: .destructive) {
-                        Task { try? await authStore.signOut() }
-                    }
-                }
             }
             .scrollContentBackground(.hidden)
             .background(Color.screenBackground)
-            .navigationTitle("Mi perfil")
+            .navigationTitle("Editar perfil")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cerrar") { dismiss() } }
+                // Guardar siempre a la vista, arriba a la derecha (no hasta abajo del formulario).
+                ToolbarItem(placement: .confirmationAction) {
+                    if isSaving {
+                        ProgressView()
+                    } else {
+                        Button("Guardar") { Task { await save() } }
+                            .fontWeight(.semibold)
+                            .disabled(!canSave)
+                    }
+                }
+            }
             .onAppear(perform: loadFromProfileIfNeeded)
+            // Tras iniciar sesión el perfil llega un instante después de abrir la hoja.
+            .onChange(of: authStore.profile) { _, _ in loadFromProfileIfNeeded() }
+            .sheet(isPresented: $showPicker) {
+                PhotoPickerView(limit: 1) { picked in
+                    showPicker = false
+                    if let image = picked.first { Task { await upload(image) } }
+                }
+                .ignoresSafeArea()
+            }
         }
+        .tint(.brandAccent)
     }
 
     private var avatarInitials: some View {
@@ -115,39 +122,70 @@ struct ProfileView: View {
         return letters.isEmpty ? "?" : String(letters).uppercased()
     }
 
+    private var normalizedUsername: String {
+        username.trimmingCharacters(in: .whitespaces).lowercased()
+    }
+
+    private var canSave: Bool {
+        !fullName.trimmingCharacters(in: .whitespaces).isEmpty && bio.count <= 160 && !isSaving && !isUploading
+    }
+
     private func loadFromProfileIfNeeded() {
         guard !didLoadFromProfile, let profile = authStore.profile else { return }
         didLoadFromProfile = true
         fullName = profile.fullName
+        username = profile.username ?? ""
+        bio = profile.bio ?? ""
         zone = profile.zone ?? ""
-        sportsInterestsText = profile.sportsInterests.joined(separator: ", ")
+        interests = Set(profile.sportsInterests)
         avatarUrl = profile.avatarUrl ?? ""
+    }
+
+    /// Sube la foto elegida (reducida) y la deja puesta; se guarda con el resto.
+    private func upload(_ image: UIImage) async {
+        guard let userId = authStore.userId, let data = ImageUploadService.prepare(image, maxSide: 600) else { return }
+        errorMessage = nil
+        isUploading = true
+        defer { isUploading = false }
+        do {
+            let path = try await ImageUploadService.upload(data, userId: userId)
+            if let url = ImageUploadService.publicURL(for: path) { avatarUrl = url.absoluteString }
+        } catch {
+            errorMessage = "No se pudo subir la foto. Intenta de nuevo."
+        }
     }
 
     private func save() async {
         guard let userId = authStore.userId else { return }
+        let handle = normalizedUsername
+        if !handle.isEmpty, handle.range(of: "^[a-z0-9_]{3,20}$", options: .regularExpression) == nil {
+            errorMessage = "El usuario debe tener de 3 a 20 caracteres: letras minúsculas, números o guion bajo."
+            return
+        }
         errorMessage = nil
         isSaving = true
         defer { isSaving = false }
-
-        let interests = sportsInterestsText
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
-
+        let trimmedBio = bio.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedZone = zone.trimmingCharacters(in: .whitespaces)
         do {
             _ = try await ProfileService.update(
                 id: userId,
                 with: ProfileUpdate(
-                    fullName: fullName,
-                    zone: zone.isEmpty ? nil : zone,
-                    sportsInterests: interests,
+                    fullName: fullName.trimmingCharacters(in: .whitespaces),
+                    username: handle.isEmpty ? nil : handle,
+                    bio: trimmedBio.isEmpty ? nil : trimmedBio,
+                    zone: trimmedZone.isEmpty ? nil : trimmedZone,
+                    sportsInterests: interests.sorted(),
                     avatarUrl: avatarUrl.isEmpty ? nil : avatarUrl
                 )
             )
             await authStore.refreshProfile()
+            dismiss()
         } catch {
-            errorMessage = "No se pudo guardar el perfil. Intenta de nuevo."
+            let text = String(describing: error)
+            errorMessage = text.contains("profiles_username_key") || text.contains("duplicate")
+                ? "Ese usuario ya está en uso. Prueba con otro."
+                : "No se pudieron guardar los cambios. Intenta de nuevo."
         }
     }
 }

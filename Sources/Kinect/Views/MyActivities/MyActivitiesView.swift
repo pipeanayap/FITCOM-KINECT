@@ -6,6 +6,9 @@ import SwiftUI
 struct MyActivitiesView: View {
     @Environment(AuthStore.self) private var authStore
 
+    /// Sube al crear algo o al abrir la pestaña, para recargar la lista.
+    var refreshToken = 0
+
     @State private var organized: [Activity] = []
     @State private var joined: [MyParticipation] = []
     @State private var isLoading = true
@@ -84,13 +87,14 @@ struct MyActivitiesView: View {
             }
             .task { await load() }
             .onChange(of: authStore.isSignedIn) { Task { await load() } }
+            .onChange(of: refreshToken) { Task { await load() } }
         }
     }
 
     private func load() async {
         guard let userId = authStore.userId else { return }
         errorMessage = nil
-        isLoading = true
+        isLoading = organized.isEmpty && joined.isEmpty
         defer { isLoading = false }
         async let organizedResult = ActivityService.mine(organizerId: userId)
         async let joinedResult = ParticipationService.joined(userId: userId)

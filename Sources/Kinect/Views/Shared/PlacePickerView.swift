@@ -11,6 +11,7 @@ struct PlacePickerView: View {
     @State private var isResolving = false
     @State private var errorMessage: String?
     @State private var wantsCurrent = false
+    @State private var places: [Place] = []
 
     var body: some View {
         NavigationStack {
@@ -27,6 +28,29 @@ struct PlacePickerView: View {
                         Text("Activa el permiso de ubicación en Ajustes para usar esta opción.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
+                    }
+                }
+
+                if !matchingPlaces.isEmpty {
+                    Section("Lugares FITCOM") {
+                        ForEach(matchingPlaces) { place in
+                            Button {
+                                onPick(PickedPlace(
+                                    name: place.name, latitude: place.latitude,
+                                    longitude: place.longitude, placeId: place.id
+                                ))
+                                dismiss()
+                            } label: {
+                                Label {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(place.name).foregroundStyle(Color.brandText)
+                                        Text(place.categoryLabel).font(.caption).foregroundStyle(.secondary)
+                                    }
+                                } icon: {
+                                    Image(systemName: place.categorySymbol).foregroundStyle(Color.brandPrimary)
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -56,6 +80,7 @@ struct PlacePickerView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancelar") { dismiss() } }
             }
+            .task { places = (try? await PlaceService.list()) ?? [] }
             .onAppear { search.bias(around: location.currentLocation) }
             .onChange(of: location.currentLocation) { _, new in
                 search.bias(around: new)
@@ -63,6 +88,15 @@ struct PlacePickerView: View {
             }
         }
         .tint(.brandAccent)
+    }
+
+    /// Lugares curados que coinciden con lo escrito (todos si el campo está
+    /// vacío), los más cercanos primero cuando hay ubicación.
+    private var matchingPlaces: [Place] {
+        let text = search.query.trimmingCharacters(in: .whitespaces)
+        let matches = text.isEmpty ? places : places.filter { $0.name.localizedStandardContains(text) }
+        guard let origin = location.currentLocation else { return matches }
+        return matches.sorted { $0.distance(from: origin) < $1.distance(from: origin) }
     }
 
     private func pick(_ suggestion: PlaceSuggestion) async {

@@ -14,6 +14,15 @@ enum ProfileService {
             .value
     }
 
+    /// Sólo cambia la foto (desde el perfil público o el editor).
+    static func setAvatar(id: UUID, url: String) async throws {
+        try await SupabaseManager.client
+            .from("profiles")
+            .update(["avatar_url": url])
+            .eq("id", value: id)
+            .execute()
+    }
+
     static func update(id: UUID, with update: ProfileUpdate) async throws -> Profile {
         try await SupabaseManager.client
             .from("profiles")

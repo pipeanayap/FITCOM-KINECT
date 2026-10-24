@@ -69,6 +69,8 @@ struct Activity: Codable, Identifiable, Hashable {
     var computedStatus: ActivityStatus
     var latitude: Double?
     var longitude: Double?
+    var placeId: UUID?
+    var groupId: UUID?
 
     var canAcceptParticipants: Bool { computedStatus == .abierta }
 
@@ -98,6 +100,8 @@ struct NewActivity: Encodable {
     var estimatedCost: Double?
     var latitude: Double?
     var longitude: Double?
+    var placeId: UUID?
+    var groupId: UUID?
 }
 
 /// Lo que se manda al editar una actividad (US-11): mismos campos, sin organizador.
@@ -112,5 +116,34 @@ struct ActivityEdit: Encodable {
     var estimatedCost: Double?
     var latitude: Double?
     var longitude: Double?
+    var placeId: UUID?
+    var groupId: UUID?
     var coordinationLink: String?
+}
+
+extension ActivityEdit {
+    enum CodingKeys: String, CodingKey {
+        case sport, title, description, scheduledAt, zone, level, capacity, estimatedCost
+        case latitude, longitude, placeId, groupId, coordinationLink
+    }
+
+    /// `placeId` se manda siempre (como null si no hay): al cambiar a un lugar
+    /// de MapKit hay que poder quitar el lugar curado anterior. El resto de los
+    /// opcionales se omite cuando es nil, como antes.
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(sport, forKey: .sport)
+        try c.encode(title, forKey: .title)
+        try c.encodeIfPresent(description, forKey: .description)
+        try c.encode(scheduledAt, forKey: .scheduledAt)
+        try c.encode(zone, forKey: .zone)
+        try c.encode(level, forKey: .level)
+        try c.encode(capacity, forKey: .capacity)
+        try c.encodeIfPresent(estimatedCost, forKey: .estimatedCost)
+        try c.encodeIfPresent(latitude, forKey: .latitude)
+        try c.encodeIfPresent(longitude, forKey: .longitude)
+        try c.encode(placeId, forKey: .placeId)
+        try c.encodeIfPresent(groupId, forKey: .groupId)
+        try c.encodeIfPresent(coordinationLink, forKey: .coordinationLink)
+    }
 }

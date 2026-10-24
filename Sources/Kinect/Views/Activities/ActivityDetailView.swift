@@ -1,3 +1,4 @@
+import MapKit
 import SwiftUI
 
 /// Detalle completo de una actividad: info del organizador, participantes y
@@ -25,8 +26,10 @@ struct ActivityDetailView: View {
     @State private var showCancelConfirmation = false
     @State private var showLeaveConfirmation = false
     @State private var showReportSheet = false
+    @State private var groupName: String?
+    @Environment(TabBarState.self) private var tabBar
 
-    private static let dateStyle: Date.FormatStyle = .dateTime.weekday(.wide).day().month().hour().minute()
+    private static let dateStyle: Date.FormatStyle = .dateTime.weekday(.wide).day().month().hour().minute().locale(Fmt.locale)
 
     var body: some View {
         Group {
@@ -43,6 +46,12 @@ struct ActivityDetailView: View {
             }
         }
         .task { await load() }
+        .onAppear { tabBar.isHidden = true }
+        .onDisappear { tabBar.isHidden = false }
+        .edgeSwipeBack {
+            tabBar.isHidden = false
+            dismiss()
+        }
         .sheet(isPresented: $showEditSheet) {
             if let activity {
                 ActivityFormView(editing: activity, currentCoordinationLink: coordinationLink) { updated in
@@ -88,12 +97,11 @@ struct ActivityDetailView: View {
 
                     HStack(spacing: 10) {
                         infoChip(icon: "gauge.with.dots.needle.50percent", label: "Nivel", value: activity.level.label)
-                        infoChip(icon: "calendar", label: "Fecha", value: activity.scheduledAt.formatted(.dateTime.day().month(.abbreviated)))
-                        infoChip(icon: "clock", label: "Hora", value: activity.scheduledAt.formatted(.dateTime.hour().minute()))
+                        infoChip(icon: "calendar", label: "Fecha", value: activity.scheduledAt.formatted(.dateTime.day().month(.abbreviated).locale(Fmt.locale)))
+                        infoChip(icon: "clock", label: "Hora", value: activity.scheduledAt.formatted(.dateTime.hour().minute().locale(Fmt.locale)))
                     }
 
-                    infoRow(icon: "mappin.and.ellipse", text: activity.zone)
-                        .cardStyle()
+                    locationCard(for: activity)
 
                     if let cost = activity.estimatedCost {
                         infoRow(icon: "dollarsign.circle.fill", text: "Costo estimado: \(cost.formatted(.currency(code: "MXN")))")
@@ -131,9 +139,12 @@ struct ActivityDetailView: View {
                 .padding(.top, 16)
             }
             .background(Color.screenBackground)
+            .statusBarCover()
             .refreshable { await load() }
 
-            StickyActionBar { actionBarContent(for: activity) }
+            if !canManage(activity) || activity.status == .cancelada {
+                StickyActionBar { actionBarContent(for: activity) }
+            }
         }
     }
 
@@ -149,7 +160,8 @@ struct ActivityDetailView: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
-                    Button { dismiss() } label: {
+                    // La barra vuelve al empezar el regreso, no cuando termina la animación.
+                    Button { tabBar.isHidden = false; dismiss() } label: {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 16, weight: .bold))
                             .foregroundStyle(.white)
@@ -158,6 +170,23 @@ struct ActivityDetailView: View {
                     }
                     Spacer()
                     StatusBadge(status: activity.computedStatus)
+                    if canManage(activity) {
+                        // Editar/cancelar van en un menú para no tocarlos por error.
+                        Menu {
+                            Button { showEditSheet = true } label: {
+                                Label("Editar actividad", systemImage: "pencil")
+                            }
+                            Button(role: .destructive) { showCancelConfirmation = true } label: {
+                                Label("Cancelar actividad", systemImage: "xmark.circle")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis")
+                                .font(.system(size: 16, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(width: 36, height: 36)
+                                .background(.white.opacity(0.18), in: Circle())
+                        }
+                    }
                 }
                 Spacer()
                 VStack(alignment: .leading, spacing: 6) {
@@ -171,6 +200,11 @@ struct ActivityDetailView: View {
                         .lineLimit(2)
                     if let organizerName {
                         Label("Organiza \(organizerName)", systemImage: "person.crop.circle.fill")
+                            .font(.footnote)
+                            .foregroundStyle(.white.opacity(0.85))
+                    }
+                    if let groupName {
+                        Label("Grupo \(groupName)", systemImage: "person.3.fill")
                             .font(.footnote)
                             .foregroundStyle(.white.opacity(0.85))
                     }
@@ -204,6 +238,29 @@ struct ActivityDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// Lugar de la actividad con mapa y salto a la app Mapas (SCRUM-37).
+    /// Las actividades anteriores a SCRUM-35 no tienen coordenadas: sólo texto.
+    @ViewBuilder
+    private func locationCard(for activity: Activity) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            infoRow(icon: "mappin.and.ellipse", text: activity.zone)
+            if let coordinate = activity.coordinate {
+                MapPreview(coordinate: coordinate, title: activity.zone)
+                    .frame(height: 160)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                Button {
+                    let item = MKMapItem(placemark: MKPlacemark(coordinate: coordinate))
+                    item.name = activity.zone
+                    item.openInMaps()
+                } label: {
+                    Label("Abrir en Mapas", systemImage: "map.fill")
+                }
+                .buttonStyle(.fitcomSecondary(tint: .brandAccent))
+            }
+        }
+        .cardStyle()
+    }
+
     @ViewBuilder
     private func participantsCard(for activity: Activity) -> some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -234,6 +291,7 @@ struct ActivityDetailView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .cardStyle()
     }
 
@@ -266,19 +324,19 @@ struct ActivityDetailView: View {
         return String(letters).uppercased()
     }
 
+    /// Organizador de una actividad todavía no cancelada (US-11, US-12).
+    private func canManage(_ activity: Activity) -> Bool {
+        authStore.userId == activity.organizerId && activity.status != .cancelada
+    }
+
     @ViewBuilder
     private func actionBarContent(for activity: Activity) -> some View {
         let isOrganizer = authStore.userId == activity.organizerId
 
         if isOrganizer {
             if activity.status != .cancelada {
-                HStack(spacing: 10) {
-                    Button("Editar") { showEditSheet = true }
-                        .buttonStyle(.fitcomInk)
-                    Button("Cancelar") { showCancelConfirmation = true }
-                        .buttonStyle(.fitcomSecondary(tint: .red))
-                    Spacer()
-                }
+                // Editar y cancelar viven en el menú ⋯ del encabezado.
+                EmptyView()
             } else {
                 calloutText("Esta actividad está cancelada.", icon: "xmark.circle.fill")
             }
@@ -336,11 +394,14 @@ struct ActivityDetailView: View {
 
     private func load() async {
         errorMessage = nil
-        isLoading = true
+        isLoading = activity == nil
         defer { isLoading = false }
         do {
             let activity = try await ActivityService.detail(id: activityId)
             self.activity = activity
+            if let groupId = activity.groupId {
+                groupName = try? await GroupService.detail(id: groupId).name
+            }
             async let organizer = ProfileService.fetch(id: activity.organizerId)
             async let participantsList = ParticipationService.participants(activityId: activityId)
             organizerName = try? await organizer.fullName

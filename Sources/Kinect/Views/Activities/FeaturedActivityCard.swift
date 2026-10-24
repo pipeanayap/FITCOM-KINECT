@@ -10,7 +10,7 @@ struct FeaturedActivityCard: View {
     /// Distancia en metros desde mi ubicación (SCRUM-36); `nil` = no mostrar.
     var distance: CLLocationDistance?
 
-    private static let dateStyle: Date.FormatStyle = .dateTime.weekday(.abbreviated).day().month(.abbreviated).hour().minute()
+    private static let dateStyle: Date.FormatStyle = .dateTime.weekday(.abbreviated).day().month(.abbreviated).hour().minute().locale(Fmt.locale)
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {

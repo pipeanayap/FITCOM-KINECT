@@ -16,20 +16,25 @@ struct ActivityListView: View {
     @State private var errorMessage: String?
     @State private var showFilterSheet = false
     @State private var nearMe = false
+    @State private var path = NavigationPath()
+    @State private var showMap = false
+    @State private var places: [Place] = []
     @State private var location = LocationService.shared
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             Group {
                 if isLoading {
                     LoadingStateView()
                 } else if let errorMessage {
                     ErrorStateView(message: errorMessage, retry: load)
+                } else if showMap {
+                    mapMode
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 18) {
                             header
-                            searchBar
+                            searchRow
                             if !availableSports.isEmpty {
                                 sportChips
                             }
@@ -73,6 +78,7 @@ struct ActivityListView: View {
                         .padding(.bottom, 12)
                     }
                     .background(Color.screenBackground)
+                    .statusBarCover()
                     .refreshable { await load() }
                 }
             }
@@ -80,6 +86,9 @@ struct ActivityListView: View {
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: UUID.self) { activityId in
                 ActivityDetailView(activityId: activityId)
+            }
+            .navigationDestination(for: Place.self) { place in
+                PlaceDetailView(place: place)
             }
             .sheet(isPresented: $showFilterSheet) {
                 ActivityFilterSheet(filter: $filter)
@@ -127,6 +136,82 @@ struct ActivityListView: View {
         Text(initials)
             .font(.subheadline.weight(.bold))
             .foregroundStyle(Color.brandAccent)
+    }
+
+    /// Barra de búsqueda + conmutador Lista / Mapa (SCRUM-40).
+    private var searchRow: some View {
+        HStack(spacing: 10) {
+            searchBar
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { showMap.toggle() }
+            } label: {
+                Image(systemName: showMap ? "list.bullet" : "map.fill")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(showMap ? .white : Color.brandAccent)
+                    .frame(width: 46, height: 46)
+                    .background(showMap ? Color.brandAccent : Color.cardBackground, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(showMap ? "Ver lista" : "Ver mapa")
+        }
+    }
+
+    private var mapMode: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            header
+            searchRow
+            MultiPinMapView(pins: mapPins, onSelect: openPin)
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .overlay(alignment: .topLeading) { mapLegend }
+        }
+        .padding(.horizontal)
+        .padding(.top, 8)
+        .padding(.bottom, 12)
+        .background(Color.screenBackground)
+        .statusBarCover()
+    }
+
+    private var mapLegend: some View {
+        HStack(spacing: 12) {
+            legendDot(Color.brandPrimary, "Lugares")
+            legendDot(Color.brandAccent, "Actividades")
+        }
+        .font(.caption2.weight(.semibold))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(.ultraThinMaterial, in: Capsule())
+        .padding(10)
+    }
+
+    private func legendDot(_ color: Color, _ label: String) -> some View {
+        HStack(spacing: 5) {
+            Circle().fill(color).frame(width: 8, height: 8)
+            Text(label)
+        }
+    }
+
+    /// Lugares curados + actividades (ya filtradas) que tienen coordenadas.
+    private var mapPins: [MapPin] {
+        let placePins = places.map {
+            MapPin(id: "place-\($0.id)", refId: $0.id, kind: .place, coordinate: $0.coordinate,
+                   title: $0.name, symbol: $0.categorySymbol)
+        }
+        let activityPins = activities.compactMap { activity in
+            activity.coordinate.map {
+                MapPin(id: "activity-\(activity.id)", refId: activity.id, kind: .activity, coordinate: $0,
+                       title: activity.title, symbol: SportVisuals.symbol(for: activity.sport))
+            }
+        }
+        return placePins + activityPins
+    }
+
+    private func openPin(_ pin: MapPin) {
+        switch pin.kind {
+        case .activity:
+            path.append(pin.refId)
+        case .place:
+            if let place = places.first(where: { $0.id == pin.refId }) { path.append(place) }
+        }
     }
 
     private var searchBar: some View {
@@ -221,10 +306,11 @@ struct ActivityListView: View {
 
     private func load() async {
         errorMessage = nil
-        isLoading = true
+        isLoading = allActivities.isEmpty
         defer { isLoading = false }
         do {
             allActivities = try await ActivityService.list()
+            places = (try? await PlaceService.list()) ?? places
         } catch {
             errorMessage = "No se pudieron cargar las actividades."
         }

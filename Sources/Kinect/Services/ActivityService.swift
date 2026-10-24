@@ -41,6 +41,17 @@ enum ActivityService {
             .value
     }
 
+    /// Varias actividades de una sola consulta (tarjetas del feed, SCRUM-45).
+    static func byIds(_ ids: [UUID]) async throws -> [Activity] {
+        guard !ids.isEmpty else { return [] }
+        return try await SupabaseManager.client
+            .from("activities_public")
+            .select()
+            .in("id", values: ids)
+            .execute()
+            .value
+    }
+
     static func detail(id: UUID) async throws -> Activity {
         try await SupabaseManager.client
             .from("activities_public")

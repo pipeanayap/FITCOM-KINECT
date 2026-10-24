@@ -45,6 +45,15 @@ struct CardBackground: ViewModifier {
 }
 
 extension View {
+    /// Con la barra de navegación oculta el contenido del scroll sube por
+    /// debajo de la hora/batería; esto pinta esa franja con el fondo de la
+    /// pantalla para que el contenido se corte limpio ahí.
+    func statusBarCover() -> some View {
+        overlay(alignment: .top) {
+            Color.screenBackground.ignoresSafeArea(edges: .top).frame(height: 0)
+        }
+    }
+
     func cardStyle(padding: CGFloat = 16, radius: CGFloat = 20) -> some View {
         modifier(CardBackground(padding: padding, radius: radius))
     }
@@ -146,10 +155,14 @@ struct FilterChip: View {
                 .font(.subheadline.weight(.semibold))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 9)
-                .background(isSelected ? Color.brandInk : Color.cardBackground, in: Capsule())
+                // Seleccionado = naranja de la marca: se distingue igual en claro y oscuro
+                // (con el negro de la marca se perdía contra el fondo oscuro).
+                .background(isSelected ? Color.brandAccent : Color.cardBackground, in: Capsule())
                 .foregroundStyle(isSelected ? .white : Color.brandText)
         }
         .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.15), value: isSelected)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
@@ -168,7 +181,7 @@ struct FilterChip: View {
 struct StickyActionBar<Content: View>: View {
     @ViewBuilder var content: Content
 
-    private static var floatingTabBarClearance: CGFloat { 84 }
+    private static var floatingTabBarClearance: CGFloat { 0 }
 
     var body: some View {
         content
