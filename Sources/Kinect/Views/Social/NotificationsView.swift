@@ -35,7 +35,7 @@ struct NotificationsView: View {
             } else if items.isEmpty {
                 EmptyStateView(
                     title: "Sin notificaciones",
-                    message: "Cuando alguien te siga, comente o se una a tus actividades, lo verás aquí.",
+                    message: "Aquí verás la actividad de tu comunidad y las solicitudes e invitaciones a grupos.",
                     systemImage: "bell"
                 )
                 .frame(maxHeight: .infinity)
@@ -52,6 +52,7 @@ struct NotificationsView: View {
         .background(Color.screenBackground)
         .statusBarCover()
         .toolbar(.hidden, for: .navigationBar)
+        .navigationDestination(for: GroupRoute.self) { route in GroupLoaderView(id: route.id) }
         .task { await load() }
         .onAppear { tabBar.isHidden = true }
         .onDisappear { tabBar.isHidden = false }
@@ -64,6 +65,12 @@ struct NotificationsView: View {
     @ViewBuilder
     private func row(_ item: AppNotification) -> some View {
         switch item.kind {
+        case "group_request", "group_invitation", "group_accepted", "group_rejected":
+            if let groupId = item.groupId {
+                NavigationLink(value: GroupRoute(id: groupId)) { content(item) }.buttonStyle(.plain)
+            } else {
+                content(item)
+            }
         case "follow":
             NavigationLink(value: ProfileRoute(userId: item.actorId)) { content(item) }.buttonStyle(.plain)
         case "join":
@@ -134,6 +141,7 @@ struct NotificationsView: View {
         case "like": "heart.fill"
         case "comment": "bubble.right.fill"
         case "follow": "person.fill.badge.plus"
+        case "group_request", "group_invitation", "group_accepted", "group_rejected": "person.3.fill"
         default: "figure.run"
         }
     }
@@ -174,6 +182,28 @@ struct PostLoaderView: View {
         }
         .task {
             do { post = try await PostService.detail(id: id) } catch { failed = true }
+        }
+    }
+}
+
+/// Las notificaciones guardan el id; el grupo puede haber sido eliminado u ocultado.
+struct GroupLoaderView: View {
+    let id: UUID
+    @State private var group: CommunityGroup?
+    @State private var failed = false
+
+    var body: some View {
+        Group {
+            if let group {
+                GroupDetailView(group: group, onChange: {})
+            } else if failed {
+                EmptyStateView(title: "Grupo no disponible", message: "Puede que se haya eliminado u ocultado.", systemImage: "person.3")
+            } else {
+                LoadingStateView()
+            }
+        }
+        .task {
+            do { group = try await GroupService.detail(id: id) } catch { failed = true }
         }
     }
 }

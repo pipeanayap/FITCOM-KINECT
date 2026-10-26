@@ -77,6 +77,18 @@ struct FeedView: View {
                                     onReport: { reportTarget = $0 },
                                     onOpenImages: { viewer = ImageViewerItem(post: $0, index: $1) }
                                 )
+                                .overlay(alignment: .bottom) {
+                                    if post.id != posts.last?.id {
+                                        // Centrada en el espacio de 26 pt entre publicaciones.
+                                        Color(uiColor: .separator)
+                                            .opacity(0.7)
+                                            .frame(height: 1)
+                                            .padding(.horizontal, 16)
+                                            .offset(y: 13)
+                                            .allowsHitTesting(false)
+                                            .accessibilityHidden(true)
+                                    }
+                                }
                                 .onAppear {
                                     if post.id == posts.last?.id { Task { await loadMore() } }
                                 }

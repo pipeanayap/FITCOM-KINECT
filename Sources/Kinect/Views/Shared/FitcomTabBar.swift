@@ -11,7 +11,18 @@ enum FitcomTab {
 @MainActor
 @Observable
 final class TabBarState {
-    var isHidden = false
+    private var requestedHidden = false
+    var activeTab: FitcomTab = .home
+    var exploreAtRoot = true
+
+    // Las pantallas de detalle pueden seguir montadas en pestañas inactivas.
+    // Sus callbacks no deben ocultar la barra sobre la raíz de Explorar.
+    var isHidden: Bool {
+        get { requestedHidden && !(activeTab == .explore && exploreAtRoot) }
+        set { requestedHidden = newValue }
+    }
+    /// Borde superior en coordenadas de pantalla, incluido el botón Crear.
+    var topEdge: CGFloat?
     /// Una pantalla pide cambiar de pestaña (p. ej. "Únete a tu primer grupo");
     /// RootView lo atiende y lo limpia.
     var requestedTab: FitcomTab?

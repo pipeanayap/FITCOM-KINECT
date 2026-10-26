@@ -4,6 +4,7 @@ import Foundation
 struct ProfileRoute: Hashable { let userId: UUID }
 struct PostRoute: Hashable { let id: UUID }
 struct NotificationsRoute: Hashable {}
+struct GroupRoute: Hashable { let id: UUID }
 
 /// Perfil público con conteos, leído de `profile_stats` (SCRUM-47).
 struct ProfileStats: Codable, Identifiable, Hashable {
@@ -38,12 +39,18 @@ struct Story: Codable, Identifiable, Hashable {
     var authorAvatar: String?
     var viewedByMe: Bool
     var viewCount: Int
+    var mediaType: String?
+    var videoDuration: Double?
+
+    var isVideo: Bool { mediaType == "video" }
 }
 
 struct NewStory: Encodable {
     var authorId: UUID
     var imagePath: String
     var caption: String?
+    var mediaType: String = "image"
+    var videoDuration: Double? = nil
 }
 
 struct NewStoryView: Encodable {
@@ -77,12 +84,18 @@ struct AppNotification: Codable, Identifiable, Hashable {
     var actorName: String
     var actorAvatar: String?
     var activityTitle: String?
+    var groupId: UUID?
+    var groupName: String?
 
     var text: String {
         switch kind {
         case "like": "le dio me gusta a tu publicación"
         case "comment": "comentó tu publicación"
         case "follow": "empezó a seguirte"
+        case "group_request": "solicitó unirse a \"\(groupName ?? "tu grupo")\""
+        case "group_invitation": "te invitó a \"\(groupName ?? "un grupo")\""
+        case "group_accepted": "aceptó el ingreso a \"\(groupName ?? "tu grupo")\""
+        case "group_rejected": "rechazó el ingreso a \"\(groupName ?? "tu grupo")\""
         case "join": "se unió a \"\(activityTitle ?? "tu actividad")\""
         default: "tuvo actividad contigo"
         }

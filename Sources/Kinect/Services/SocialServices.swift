@@ -52,6 +52,17 @@ enum StoryService {
             .value
     }
 
+    static func byAuthor(_ userId: UUID) async throws -> [Story] {
+        try await SupabaseManager.client
+            .from("stories_public")
+            .select()
+            .eq("author_id", value: userId)
+            .gt("expires_at", value: Date())
+            .order("created_at", ascending: true)
+            .execute()
+            .value
+    }
+
     static func create(_ draft: NewStory) async throws {
         try await SupabaseManager.client
             .from("stories")
@@ -73,7 +84,11 @@ enum StoryService {
             .delete()
             .eq("id", value: story.id)
             .execute()
-        await ImageUploadService.delete(paths: [story.imagePath])
+        if story.isVideo {
+            await StoryMediaService.deleteVideo(path: story.imagePath)
+        } else {
+            await ImageUploadService.delete(paths: [story.imagePath])
+        }
     }
 
     /// Agrupa por persona: primero quienes tienen historias sin ver, y dentro

@@ -7,8 +7,11 @@ import SwiftUI
 /// y el resto queda abajo en tarjetas (mismo dato, más jerarquía visual).
 struct ActivityListView: View {
     @Environment(AuthStore.self) private var authStore
+    @Environment(TabBarState.self) private var tabBar
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let onOpenProfile: () -> Void
+    let refreshToken: Int
 
     @State private var allActivities: [Activity] = []
     @State private var filter: ActivityFilter = .empty
@@ -18,6 +21,7 @@ struct ActivityListView: View {
     @State private var nearMe = false
     @State private var path = NavigationPath()
     @State private var showMap = false
+    @State private var selectedMapActivityId: UUID?
     @State private var places: [Place] = []
     @State private var location = LocationService.shared
 
@@ -93,7 +97,16 @@ struct ActivityListView: View {
             .sheet(isPresented: $showFilterSheet) {
                 ActivityFilterSheet(filter: $filter)
             }
-            .task { await load() }
+            .task(id: refreshToken) { await load() }
+            .onAppear {
+                tabBar.exploreAtRoot = path.isEmpty
+                if path.isEmpty && tabBar.activeTab == .explore { tabBar.isHidden = false }
+            }
+            .onChange(of: path.count) { old, new in
+                tabBar.exploreAtRoot = new == 0
+                if tabBar.activeTab == .explore { tabBar.isHidden = new > 0 }
+                if new < old { Task { await load() } }
+            }
             .onChange(of: filter.maxDistanceKm) { _, new in
                 if new != nil { location.requestLocation() }
             }
@@ -160,15 +173,57 @@ struct ActivityListView: View {
         VStack(alignment: .leading, spacing: 14) {
             header
             searchRow
-            MultiPinMapView(pins: mapPins, onSelect: openPin)
-                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                .overlay(alignment: .topLeading) { mapLegend }
+            GeometryReader { geometry in
+                let bottomClearance = overviewBottomClearance(in: geometry)
+                let overviewHeight = min(360, max(0, geometry.size.height - bottomClearance - 10) * 0.65)
+                MultiPinMapView(pins: mapPins, onSelect: openPin)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    .overlay(alignment: .topLeading) { mapLegend }
+                    .overlay(alignment: .bottom) {
+                        ZStack(alignment: .bottom) {
+                            if let activity = activities.first(where: { $0.id == selectedMapActivityId }) {
+                                ActivityMapOverview(
+                                    activity: activity,
+                                    refreshToken: path.count,
+                                    onClose: { selectedMapActivityId = nil },
+                                    onOpenDetails: { path.append(activity.id) }
+                                )
+                                .frame(height: overviewHeight)
+                                .padding(.horizontal, 10)
+                                .padding(.bottom, bottomClearance)
+                                .transition(overviewTransition)
+                                .id(activity.id)
+                                .zIndex(1)
+                            }
+                        }
+                        .animation(
+                            reduceMotion ? .easeInOut(duration: 0.2) : .spring(duration: 0.38, bounce: 0.12),
+                            value: selectedMapActivityId
+                        )
+                    }
+            }
         }
         .padding(.horizontal)
         .padding(.top, 8)
         .padding(.bottom, 12)
         .background(Color.screenBackground)
         .statusBarCover()
+    }
+
+    private func overviewBottomClearance(in geometry: GeometryProxy) -> CGFloat {
+        guard !tabBar.isHidden else { return 10 }
+        // NavigationStack/MapKit pueden extender el mapa por debajo del inset
+        // de RootView. Compara posiciones reales para reservar sólo el solape.
+        guard let topEdge = tabBar.topEdge else { return 90 }
+        return max(10, geometry.frame(in: .global).maxY - topEdge + 12)
+    }
+
+    private var overviewTransition: AnyTransition {
+        if reduceMotion { return .opacity }
+        return .offset(y: 24)
+            .combined(with: .scale(scale: 0.97, anchor: .bottom))
+            .combined(with: .opacity)
     }
 
     private var mapLegend: some View {
@@ -208,8 +263,9 @@ struct ActivityListView: View {
     private func openPin(_ pin: MapPin) {
         switch pin.kind {
         case .activity:
-            path.append(pin.refId)
+            selectedMapActivityId = pin.refId
         case .place:
+            selectedMapActivityId = nil
             if let place = places.first(where: { $0.id == pin.refId }) { path.append(place) }
         }
     }

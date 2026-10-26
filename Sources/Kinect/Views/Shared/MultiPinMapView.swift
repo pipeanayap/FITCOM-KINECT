@@ -47,9 +47,13 @@ struct MultiPinMapView: UIViewRepresentable {
     func updateUIView(_ map: MKMapView, context: Context) {
         let coordinator = context.coordinator
         coordinator.onSelect = onSelect
-        let key = pins.map(\.id).joined(separator: ",")
+        let key = pins.map { "\($0.id):\($0.coordinate.latitude):\($0.coordinate.longitude)" }
+            .joined(separator: ",")
         guard key != coordinator.lastKey else { return }
+        let previousIDs = coordinator.activityIDs
+        let currentIDs = Set(pins.filter { $0.kind == .activity }.map(\.id))
         coordinator.lastKey = key
+        coordinator.activityIDs = currentIDs
 
         map.removeAnnotations(map.annotations.filter { $0 is PinAnnotation })
         let annotations = pins.map { PinAnnotation(pin: $0) }
@@ -59,6 +63,10 @@ struct MultiPinMapView: UIViewRepresentable {
         if !coordinator.didFit, !annotations.isEmpty {
             coordinator.didFit = true
             map.showAnnotations(annotations, animated: false)
+        } else if let newActivity = pins.last(where: { $0.kind == .activity && !previousIDs.contains($0.id) }) {
+            // Al crear una actividad con el mapa ya montado, conserva el zoom
+            // y centra el pin nuevo para que no quede fuera de la pantalla.
+            map.setCenter(newActivity.coordinate, animated: true)
         }
     }
 
@@ -67,6 +75,7 @@ struct MultiPinMapView: UIViewRepresentable {
         var onSelect: (MapPin) -> Void
         var lastKey = ""
         var didFit = false
+        var activityIDs = Set<String>()
 
         init(onSelect: @escaping (MapPin) -> Void) { self.onSelect = onSelect }
 
@@ -81,8 +90,8 @@ struct MultiPinMapView: UIViewRepresentable {
             return view
         }
 
-        func mapView(_ mapView: MKMapView, didSelect annotation: MKAnnotation) {
-            guard let annotation = annotation as? PinAnnotation else { return }
+        func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
+            guard let annotation = view.annotation as? PinAnnotation else { return }
             mapView.deselectAnnotation(annotation, animated: false)
             onSelect(annotation.pin)
         }

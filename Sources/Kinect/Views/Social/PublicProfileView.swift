@@ -33,6 +33,10 @@ struct PublicProfileView: View {
     @State private var showSettings = false
     @State private var showAvatarPicker = false
     @State private var showCompose = false
+    @State private var showStoryCompose = false
+    @State private var profileStories: [Story] = []
+    @State private var isLoadingStories = true
+    @State private var storyViewer: StoryViewerItem?
 
     private var isMe: Bool { authStore.userId == userId }
 
@@ -79,6 +83,12 @@ struct PublicProfileView: View {
             tabBar.isHidden = false
             dismiss()
         }
+        .fullScreenCover(item: $storyViewer, onDismiss: { Task { await loadStories() } }) { item in
+            StoryViewerView(item: item) { Task { await loadStories() } }
+        }
+        .sheet(isPresented: $showStoryCompose, onDismiss: { Task { await loadStories() } }) {
+            StoryComposeView { Task { await loadStories() } }
+        }
         .sheet(isPresented: $showEdit, onDismiss: { Task { await load() } }) { ProfileView() }
         .sheet(isPresented: $showSettings) { SettingsView() }
         .sheet(isPresented: $showCompose) { ComposePostView { Task { await load() } } }
@@ -109,6 +119,7 @@ struct PublicProfileView: View {
                 }
                 if isMe {
                     Menu {
+                        Button { showAvatarPicker = true } label: { Label("Cambiar foto de perfil", systemImage: "photo") }
                         Button { showSettings = true } label: { Label("Configuración y cuenta", systemImage: "gearshape") }
                     } label: { circleIcon("ellipsis") }
                 }
@@ -145,27 +156,36 @@ struct PublicProfileView: View {
         }
     }
 
+    private var activeStories: [Story] { profileStories.filter { $0.expiresAt > Date() } }
+
     private func avatar(_ stats: ProfileStats) -> some View {
-        ZStack {
-            Circle().strokeBorder(
-                LinearGradient(colors: [Color.brandAccent, Color.brandWarning], startPoint: .topLeading, endPoint: .bottomTrailing),
-                lineWidth: 3
-            )
-            Circle().fill(Color.brandAccent.opacity(0.15)).padding(5)
-            if let urlString = stats.avatarUrl, !urlString.isEmpty, let url = URL(string: urlString) {
-                CachedAsyncImage(url: url) { initials(stats) }.clipShape(Circle()).padding(5)
-            } else {
-                initials(stats)
+        Button { openStories() } label: {
+            ZStack {
+                Circle().strokeBorder(
+                    activeStories.isEmpty
+                        ? AnyShapeStyle(Color.secondary.opacity(0.25))
+                        : AnyShapeStyle(LinearGradient(colors: [Color.brandAccent, Color.brandWarning], startPoint: .topLeading, endPoint: .bottomTrailing)),
+                    lineWidth: 3
+                )
+                Circle().fill(Color.brandAccent.opacity(0.15)).padding(5)
+                if let urlString = stats.avatarUrl, !urlString.isEmpty, let url = URL(string: urlString) {
+                    CachedAsyncImage(url: url) { initials(stats) }.clipShape(Circle()).padding(5)
+                } else {
+                    initials(stats)
+                }
+                if isUploadingAvatar {
+                    Circle().fill(.black.opacity(0.35)).padding(5)
+                    ProgressView().tint(.white)
+                }
             }
-            if isUploadingAvatar {
-                Circle().fill(.black.opacity(0.35)).padding(5)
-                ProgressView().tint(.white)
-            }
+            .frame(width: 92, height: 92)
         }
-        .frame(width: 92, height: 92)
+        .buttonStyle(.plain)
+        .disabled(isUploadingAvatar || isLoadingStories || (!isMe && activeStories.isEmpty))
+        .accessibilityLabel(activeStories.isEmpty ? (isMe ? "Agregar historia" : "Foto de perfil") : "Ver historias")
         .overlay(alignment: .bottomTrailing) {
             if isMe {
-                Button { showAvatarPicker = true } label: {
+                Button { showStoryCompose = true } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(.white)
@@ -175,9 +195,18 @@ struct PublicProfileView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(isUploadingAvatar)
-                .accessibilityLabel("Cambiar foto de perfil")
+                .accessibilityLabel("Agregar historia")
             }
         }
+    }
+
+    private func openStories() {
+        let stories = activeStories
+        guard let group = StoryService.groups(from: stories).first else {
+            if isMe { showStoryCompose = true }
+            return
+        }
+        storyViewer = StoryViewerItem(groups: [group], startIndex: 0)
     }
 
     private func initials(_ stats: ProfileStats) -> some View {
@@ -473,11 +502,22 @@ struct PublicProfileView: View {
         isLoading = stats == nil
         defer { isLoading = false }
         stats = try? await FollowService.stats(userId: userId)
+        await loadStories()
         posts = (try? await PostService.byAuthor(userId)) ?? []
         // Los grupos se usan en la guía "Completa tu perfil", así que se cargan siempre.
         groups = (try? await GroupService.myGroups(userId: userId)) ?? []
         checklistReady = true
         if tab == .plans { await loadPlans() }
+    }
+
+    private func loadStories() async {
+        isLoadingStories = true
+        defer { isLoadingStories = false }
+        do {
+            profileStories = try await StoryService.byAuthor(userId)
+        } catch {
+            errorMessage = "No se pudieron cargar las historias. Desliza para reintentar."
+        }
     }
 
     private func loadTab() async {

@@ -7,7 +7,7 @@ struct StoryViewerItem: Identifiable {
 }
 
 /// Visor de historias a pantalla completa (SCRUM-49): barras de progreso,
-/// avance automático (5 s), toque a la izquierda/derecha para retroceder o
+/// avance automático (5 s por foto o al terminar el video), toque para retroceder o
 /// avanzar, deslizar hacia abajo para cerrar. El autor ve cuántos la vieron.
 struct StoryViewerView: View {
     let groups: [StoryGroup]
@@ -38,8 +38,13 @@ struct StoryViewerView: View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            FittedRemoteImage(url: ImageUploadService.publicURL(for: story.imagePath))
-                .id(story.id)
+            if story.isVideo, let url = StoryMediaService.publicURL(for: story) {
+                StoryVideoView(url: url, onProgress: { progress = $0 }, onFinished: { next() })
+                    .id(story.id)
+            } else {
+                FittedRemoteImage(url: StoryMediaService.publicURL(for: story))
+                    .id(story.id)
+            }
 
             HStack(spacing: 0) {
                 Color.clear.contentShape(Rectangle()).onTapGesture { previous() }
@@ -154,6 +159,7 @@ struct StoryViewerView: View {
         if let me = authStore.userId, story.authorId != me {
             await StoryService.markViewed(storyId: story.id, viewerId: me)
         }
+        if story.isVideo { return }
         let steps = 100
         for _ in 0..<steps {
             try? await Task.sleep(for: .milliseconds(Int(duration * 1000) / steps))
@@ -181,7 +187,7 @@ struct StoryViewerView: View {
             groupIndex -= 1
             storyIndex = 0
         } else {
-            progress = 0
+            if !story.isVideo { progress = 0 }
         }
     }
 
