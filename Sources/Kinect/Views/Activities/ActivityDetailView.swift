@@ -45,7 +45,7 @@ struct ActivityDetailView: View {
                     .toolbar(.hidden, for: .navigationBar)
             }
         }
-        .task { await load() }
+        .task(id: authStore.userId) { await load() }
         .onAppear { tabBar.isHidden = true }
         .onDisappear { tabBar.isHidden = false }
         .edgeSwipeBack {
@@ -73,9 +73,9 @@ struct ActivityDetailView: View {
             Text("Dejará de aceptar participantes y se marcará como cancelada para todos.")
         }
         .confirmationDialog(
-            "¿Salir de esta actividad?", isPresented: $showLeaveConfirmation, titleVisibility: .visible
+            "¿Cancelar tu inscripción?", isPresented: $showLeaveConfirmation, titleVisibility: .visible
         ) {
-            Button("Salir", role: .destructive) { Task { await leaveActivity() } }
+            Button("Cancelar inscripción", role: .destructive) { Task { await leaveActivity() } }
         } message: {
             Text("Tu lugar quedará libre para otra persona.")
         }
@@ -344,12 +344,11 @@ struct ActivityDetailView: View {
             calloutBar("Inicia sesión para unirte a esta actividad.", icon: "lock.fill")
         } else if myParticipation != nil, activity.status != .cancelada, activity.computedStatus != .finalizada {
             // (US-10) No se puede salir de una actividad ya cancelada o finalizada.
-            HStack {
-                Label("Ya estás inscrito", systemImage: "checkmark.circle.fill")
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Ya te has inscrito a esta actividad", systemImage: "checkmark.circle.fill")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color.brandAccent)
-                Spacer()
-                Button("Salir") { showLeaveConfirmation = true }
+                Button("Cancelar inscripción") { showLeaveConfirmation = true }
                     .buttonStyle(.fitcomSecondary(tint: .red))
                     .disabled(isPerformingAction)
             }
@@ -407,9 +406,11 @@ struct ActivityDetailView: View {
             organizerName = try? await organizer.fullName
             participants = (try? await participantsList) ?? []
             if let userId = authStore.userId {
-                myParticipation = try? await ParticipationService.myParticipation(
+                myParticipation = try await ParticipationService.myParticipation(
                     activityId: activityId, userId: userId
                 )
+            } else {
+                myParticipation = nil
             }
             await loadCoordinationLink()
         } catch {

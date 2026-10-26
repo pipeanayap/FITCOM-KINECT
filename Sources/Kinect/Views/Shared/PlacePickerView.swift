@@ -12,10 +12,34 @@ struct PlacePickerView: View {
     @State private var errorMessage: String?
     @State private var wantsCurrent = false
     @State private var places: [Place] = []
+    @State private var showManualMap = false
 
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    HStack(spacing: 10) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(.secondary)
+                        TextField("Dirección o nombre del lugar", text: $search.query)
+                            .textInputAutocapitalization(.words)
+                            .submitLabel(.search)
+                        if !search.query.isEmpty {
+                            Button {
+                                search.query = ""
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .accessibilityLabel("Borrar búsqueda")
+                        }
+                    }
+                } header: {
+                    Text("Buscar lugar")
+                } footer: {
+                    Text("Escribe, por ejemplo, Deportiva del Estado o una dirección. Toca una opción para elegirla.")
+                }
+
                 Section {
                     Button {
                         wantsCurrent = true
@@ -28,6 +52,11 @@ struct PlacePickerView: View {
                         Text("Activa el permiso de ubicación en Ajustes para usar esta opción.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
+                    }
+                    Button {
+                        showManualMap = true
+                    } label: {
+                        Label("Elegir en el mapa", systemImage: "map.fill")
                     }
                 }
 
@@ -54,15 +83,17 @@ struct PlacePickerView: View {
                     }
                 }
 
-                Section {
-                    ForEach(search.suggestions) { suggestion in
-                        Button {
-                            Task { await pick(suggestion) }
-                        } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(suggestion.title).foregroundStyle(Color.brandText)
-                                if !suggestion.subtitle.isEmpty {
-                                    Text(suggestion.subtitle).font(.caption).foregroundStyle(.secondary)
+                if !search.suggestions.isEmpty {
+                    Section("Resultados de búsqueda") {
+                        ForEach(search.suggestions) { suggestion in
+                            Button {
+                                Task { await pick(suggestion) }
+                            } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(suggestion.title).foregroundStyle(Color.brandText)
+                                    if !suggestion.subtitle.isEmpty {
+                                        Text(suggestion.subtitle).font(.caption).foregroundStyle(.secondary)
+                                    }
                                 }
                             }
                         }
@@ -74,7 +105,6 @@ struct PlacePickerView: View {
                 }
             }
             .overlay { if isResolving { ProgressView() } }
-            .searchable(text: $search.query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Busca un parque, cancha o dirección")
             .navigationTitle("Ubicación")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -85,6 +115,16 @@ struct PlacePickerView: View {
             .onChange(of: location.currentLocation) { _, new in
                 search.bias(around: new)
                 if wantsCurrent, let new { useCurrent(new) }
+            }
+            .navigationDestination(isPresented: $showManualMap) {
+                ManualLocationPickerView(
+                    initialCoordinate: location.currentLocation?.coordinate
+                        ?? CLLocationCoordinate2D(latitude: 21.1236, longitude: -101.6820),
+                    initialName: search.query.trimmingCharacters(in: .whitespacesAndNewlines)
+                ) { place in
+                    onPick(place)
+                    dismiss()
+                }
             }
         }
         .tint(.brandAccent)

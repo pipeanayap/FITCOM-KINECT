@@ -37,9 +37,8 @@ final class PlaceSearchService: NSObject, MKLocalSearchCompleterDelegate {
             let trimmed = query.trimmingCharacters(in: .whitespaces)
             if trimmed.isEmpty {
                 suggestions = []
-            } else {
-                completer.queryFragment = trimmed
             }
+            completer.queryFragment = trimmed
         }
     }
 
@@ -53,7 +52,9 @@ final class PlaceSearchService: NSObject, MKLocalSearchCompleterDelegate {
 
     nonisolated func completerDidUpdateResults(_ completer: MKLocalSearchCompleter) {
         let mapped = completer.results.map { PlaceSuggestion(title: $0.title, subtitle: $0.subtitle) }
-        MainActor.assumeIsolated { suggestions = mapped }
+        MainActor.assumeIsolated {
+            suggestions = query.trimmingCharacters(in: .whitespaces).isEmpty ? [] : mapped
+        }
     }
 
     nonisolated func completer(_ completer: MKLocalSearchCompleter, didFailWithError error: Error) {}
@@ -73,12 +74,12 @@ final class PlaceSearchService: NSObject, MKLocalSearchCompleterDelegate {
     }
 
     /// "Usar mi ubicación actual": nombre legible a partir de coordenadas.
-    static func place(at location: CLLocation) async -> PickedPlace {
+    static func place(at location: CLLocation, fallbackName: String = "Mi ubicación actual") async -> PickedPlace {
         let placemarks = try? await CLGeocoder().reverseGeocodeLocation(location)
         let mark = placemarks?.first
         let parts = [mark?.name, mark?.locality].compactMap { $0 }.filter { !$0.isEmpty }
         return PickedPlace(
-            name: parts.isEmpty ? "Mi ubicación actual" : parts.joined(separator: ", "),
+            name: parts.isEmpty ? fallbackName : parts.joined(separator: ", "),
             latitude: location.coordinate.latitude,
             longitude: location.coordinate.longitude
         )

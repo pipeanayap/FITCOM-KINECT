@@ -21,10 +21,12 @@ struct RootView: View {
     @State private var showAuth = false
     @State private var showMyProfile = false
     @State private var tabBar = TabBarState()
+    @State private var tabBarHeight: CGFloat = 80
     @State private var showCreateMenu = false
     @State private var createSheet: CreateSheet?
     /// Sube al crear algo para que el feed y los grupos se recarguen.
     @State private var refreshToken = 0
+    @State private var exploreToken = 0
     /// Aparte porque Mis planes también se recarga al abrir su pestaña (por ejemplo
     /// después de unirte a algo desde el feed).
     @State private var plansToken = 0
@@ -74,7 +76,12 @@ struct RootView: View {
                     selectedTab = .home
                 }
             }
-            .onChange(of: selectedTab) { _, tab in if tab == .mine { plansToken += 1 } }
+            .onChange(of: selectedTab) { _, tab in
+                tabBar.activeTab = tab
+                if tab == .explore && tabBar.exploreAtRoot { tabBar.isHidden = false }
+                if tab == .mine { plansToken += 1 }
+                if tab == .explore { exploreToken += 1 }
+            }
             .onChange(of: tabBar.requestedTab) { _, tab in
                 // Otra pantalla (p. ej. el perfil) pidió ir a una pestaña.
                 guard let tab else { return }
@@ -96,13 +103,17 @@ struct RootView: View {
         ZStack(alignment: .bottom) {
             ZStack {
                 screen(.home) { FeedView(onOpenProfile: openDrawer, refreshToken: refreshToken) }
-                screen(.explore) { ActivityListView(onOpenProfile: openDrawer) }
+                screen(.explore) { ActivityListView(onOpenProfile: openDrawer, refreshToken: exploreToken) }
                 screen(.groups) { GroupListView(refreshToken: refreshToken) }
                 screen(.mine) { MyActivitiesView(refreshToken: plansToken) }
             }
             // El contenido sigue por detrás de la barra (se ve a través del
             // vidrio); este margen sólo deja que el último elemento suba por encima.
-            .safeAreaInset(edge: .bottom) { Color.clear.frame(height: tabBar.isHidden ? 0 : 58) }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                // Reserva hasta el borde superior real de la barra, incluido
+                // el botón Crear, más 8 puntos de separación para las acciones.
+                Color.clear.frame(height: tabBar.isHidden ? 0 : max(0, tabBarHeight - 12 + 8))
+            }
 
             if showCreateMenu {
                 Color.black.opacity(0.4)
@@ -120,11 +131,21 @@ struct RootView: View {
             // Más abajo que el borde seguro, pero sin tocar la pantalla
             // (deja libre la línea del indicador de inicio).
             FitcomTabBar(selected: $selectedTab, isCreateOpen: $showCreateMenu)
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear.preference(key: TabBarFrameKey.self, value: geometry.frame(in: .global))
+                    }
+                }
                 .offset(y: tabBar.isHidden ? 140 : 12)
                 .opacity(tabBar.isHidden ? 0 : 1)
                 .allowsHitTesting(!tabBar.isHidden)
         }
         .background(Color.screenBackground.ignoresSafeArea())
+        .onPreferenceChange(TabBarFrameKey.self) { frame in
+            guard frame.height > 0 else { return }
+            tabBarHeight = frame.height
+            if !tabBar.isHidden { tabBar.topEdge = frame.minY }
+        }
         .animation(.easeInOut(duration: 0.25), value: tabBar.isHidden)
         .onChange(of: tabBar.isHidden) { _, hidden in if hidden { showCreateMenu = false } }
         .environment(tabBar)
@@ -192,7 +213,10 @@ struct RootView: View {
                 ActivityFormView(
                     organizerId: userId,
                     saveAction: .create { try await ActivityService.create($0) },
-                    onSaved: { _ in created(in: .home) }
+                    onSaved: { _ in
+                        exploreToken += 1
+                        created(in: .home)
+                    }
                 )
             }
         case .post:
@@ -219,5 +243,14 @@ struct RootView: View {
             .opacity(selectedTab == tab ? 1 : 0)
             .allowsHitTesting(selectedTab == tab)
             .accessibilityHidden(selectedTab != tab)
+    }
+}
+
+private struct TabBarFrameKey: PreferenceKey {
+    static let defaultValue: CGRect = .zero
+
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let frame = nextValue()
+        if frame.height > 0 { value = frame }
     }
 }
