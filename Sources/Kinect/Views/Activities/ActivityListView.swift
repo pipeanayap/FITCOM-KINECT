@@ -18,6 +18,7 @@ struct ActivityListView: View {
     @State private var isLoading = true
     @State private var errorMessage: String?
     @State private var showFilterSheet = false
+    @State private var showSearch = false
     @State private var nearMe = false
     @State private var path = NavigationPath()
     @State private var showMap = false
@@ -87,6 +88,14 @@ struct ActivityListView: View {
                 }
             }
             .background(Color.screenBackground)
+            .overlay {
+                if showSearch {
+                    GlobalSearchView(activities: allActivities, places: places) {
+                        withAnimation(.easeInOut(duration: 0.2)) { showSearch = false }
+                    }
+                    .transition(.opacity)
+                }
+            }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: UUID.self) { activityId in
                 ActivityDetailView(activityId: activityId)
@@ -94,6 +103,8 @@ struct ActivityListView: View {
             .navigationDestination(for: Place.self) { place in
                 PlaceDetailView(place: place)
             }
+            .navigationDestination(for: ProfileRoute.self) { PublicProfileView(userId: $0.userId) }
+            .navigationDestination(for: GroupRoute.self) { GroupLoaderView(id: $0.id) }
             .sheet(isPresented: $showFilterSheet) {
                 ActivityFilterSheet(filter: $filter)
             }
@@ -106,6 +117,9 @@ struct ActivityListView: View {
                 tabBar.exploreAtRoot = new == 0
                 if tabBar.activeTab == .explore { tabBar.isHidden = new > 0 }
                 if new < old { Task { await load() } }
+            }
+            .onChange(of: showSearch) { _, searching in
+                tabBar.searchActive = searching
             }
             .onChange(of: filter.maxDistanceKm) { _, new in
                 if new != nil { location.requestLocation() }
@@ -151,10 +165,11 @@ struct ActivityListView: View {
             .foregroundStyle(Color.brandAccent)
     }
 
-    /// Barra de búsqueda + conmutador Lista / Mapa (SCRUM-40).
+    /// Barra de búsqueda + botón de filtros + conmutador Lista / Mapa (SCRUM-40).
     private var searchRow: some View {
         HStack(spacing: 10) {
             searchBar
+            filterButton
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) { showMap.toggle() }
             } label: {
@@ -270,23 +285,38 @@ struct ActivityListView: View {
         }
     }
 
+    /// Al tocar la barra se abre la búsqueda global a pantalla completa
+    /// (`GlobalSearchView`); los filtros viven en su propio botón.
     private var searchBar: some View {
         Button {
-            showFilterSheet = true
+            withAnimation(.easeInOut(duration: 0.2)) { showSearch = true }
         } label: {
-            HStack {
+            HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                Text(filter.isEmpty ? "Buscar por deporte, zona, nivel…" : "Filtros activos")
+                Text("Buscar")
                     .foregroundStyle(.secondary)
                 Spacer()
-                Image(systemName: "slider.horizontal.3")
-                    .foregroundStyle(filter.isEmpty ? .secondary : Color.brandAccent)
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 13)
+            .frame(height: 46)
             .background(Color.cardBackground, in: Capsule())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Buscar personas, actividades, grupos y lugares")
+    }
+
+    private var filterButton: some View {
+        Button {
+            showFilterSheet = true
+        } label: {
+            Image(systemName: "slider.horizontal.3")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(filter.isEmpty ? Color.brandAccent : .white)
+                .frame(width: 46, height: 46)
+                .background(filter.isEmpty ? Color.cardBackground : Color.brandAccent, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(filter.isEmpty ? "Filtros" : "Filtros activos")
     }
 
     private var sportChips: some View {
