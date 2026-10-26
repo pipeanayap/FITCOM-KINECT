@@ -4,5 +4,9 @@
 <dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>FITCOM usa tu ubicación para mostrarte actividades cerca de ti y sugerirte lugares.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>FITCOM usa la cámara para tomar fotos y grabar videos para tus historias.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>FITCOM usa el micrófono para incluir audio en los videos de tus historias.</string>
 </dict>
 </plist>

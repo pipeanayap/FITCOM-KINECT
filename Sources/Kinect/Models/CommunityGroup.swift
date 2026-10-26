@@ -8,6 +8,7 @@ struct CommunityGroup: Codable, Identifiable, Hashable {
     var description: String?
     var sport: String?
     var zone: String?
+    var photoUrl: String? = nil
     var createdBy: UUID
     var isHidden: Bool
     var createdAt: Date
@@ -20,12 +21,24 @@ struct NewCommunityGroup: Encodable {
     var description: String?
     var sport: String?
     var zone: String?
+    var photoUrl: String? = nil
     var createdBy: UUID
 }
 
-struct NewGroupMember: Encodable {
+/// Sólo contiene pendientes; al responder se elimina y, si se acepta, se crea la membresía.
+struct GroupJoinRequest: Codable, Identifiable {
+    var id: UUID
     var groupId: UUID
     var userId: UUID
+    var kind: String
+    var profiles: GroupMember.ProfileInfo?
+    var isInvitation: Bool { kind == "invitation" }
+}
+
+struct GroupInviteCandidate: Decodable, Identifiable {
+    var id: UUID
+    var fullName: String
+    var username: String?
 }
 
 /// Miembro con su nombre público (mismo embed que `Participant`).

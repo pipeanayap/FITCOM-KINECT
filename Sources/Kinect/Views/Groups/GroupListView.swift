@@ -159,13 +159,17 @@ struct GroupRowView: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            ZStack {
-                Circle().fill(SportVisuals.gradient(for: group.sport ?? ""))
-                Image(systemName: group.sport.map(SportVisuals.symbol(for:)) ?? "person.3.fill")
-                    .font(.system(size: 19, weight: .semibold))
-                    .foregroundStyle(.white)
+            CachedAsyncImage(url: group.photoUrl.flatMap { URL(string: $0) }) {
+                ZStack {
+                    Circle().fill(SportVisuals.gradient(for: group.sport ?? ""))
+                    Image(systemName: group.sport.map(SportVisuals.symbol(for:)) ?? "person.3.fill")
+                        .font(.system(size: 19, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
             }
+            .id(group.photoUrl)
             .frame(width: 50, height: 50)
+            .clipShape(Circle())
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(group.name).font(.headline).foregroundStyle(Color.brandText).lineLimit(1)
