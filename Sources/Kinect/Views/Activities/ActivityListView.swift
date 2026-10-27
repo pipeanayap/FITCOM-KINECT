@@ -2,9 +2,7 @@ import CoreLocation
 import SwiftUI
 
 /// Explorar actividades disponibles, sin necesidad de sesión (US-04),
-/// con filtros combinables (US-06). Encabezado propio en vez de barra de
-/// navegación nativa; la primera actividad se destaca como "próximamente"
-/// y el resto queda abajo en tarjetas (mismo dato, más jerarquía visual).
+/// con búsqueda, accesos rápidos y filtros combinables (US-06).
 struct ActivityListView: View {
     @Environment(AuthStore.self) private var authStore
     @Environment(TabBarState.self) private var tabBar
@@ -19,6 +17,8 @@ struct ActivityListView: View {
     @State private var errorMessage: String?
     @State private var showFilterSheet = false
     @State private var nearMe = false
+    @State private var thisWeek = false
+    @State private var searchText = ""
     @State private var path = NavigationPath()
     @State private var showMap = false
     @State private var selectedMapActivityId: UUID?
@@ -35,45 +35,78 @@ struct ActivityListView: View {
                 } else if showMap {
                     mapMode
                 } else {
+                    ScrollViewReader { scroll in
                     ScrollView {
                         VStack(alignment: .leading, spacing: 18) {
                             header
                             searchRow
-                            if !availableSports.isEmpty {
-                                sportChips
+
+                            if let featured = upcomingActivities.first {
+                                NavigationLink(value: featured.id) {
+                                    FeaturedActivityCard(activity: featured, distance: distance(of: featured))
+                                }
+                                .buttonStyle(.plain)
                             }
+
+                            quickActions
+
+                            if thisWeek {
+                                Text("Mostrando actividades de los próximos 7 días.")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+
                             if (nearMe || filter.maxDistanceKm != nil) && location.isDenied {
                                 Text("Activa el permiso de ubicación en Ajustes para ver actividades cerca de ti.")
                                     .font(.footnote)
                                     .foregroundStyle(.secondary)
                             }
 
+                            if !upcomingActivities.isEmpty {
+                                HStack {
+                                    SectionHeaderView(title: "Próximas actividades")
+                                    Spacer()
+                                    Button("Ver todas") {
+                                        withAnimation { scroll.scrollTo("activity-list", anchor: .top) }
+                                    }
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(Color.brandAccent)
+                                }
+                                upcomingCarousel
+                            }
+
+                            VStack(alignment: .leading, spacing: 12) {
+                                SectionHeaderView(title: "Explorar por deporte")
+                                sportChips
+                            }
+                            .id("activity-list")
+
                             if activities.isEmpty {
                                 EmptyStateView(
-                                    title: filter.isEmpty ? "Sin actividades por ahora" : "Nada con esos filtros",
-                                    message: filter.isEmpty
+                                    title: hasActiveFilters ? "Nada con esos filtros" : "Sin actividades por ahora",
+                                    message: !hasActiveFilters
                                         ? "Cuando alguien publique una actividad, aparecerá aquí."
                                         : "Intenta con otros filtros o límpialos.",
                                     systemImage: "figure.run.circle"
                                 )
                                 .padding(.top, 20)
+                                if hasActiveFilters {
+                                    Button("Limpiar filtros") {
+                                        filter = .empty
+                                        searchText = ""
+                                        thisWeek = false
+                                        nearMe = false
+                                    }
+                                    .buttonStyle(.fitcomSecondary(tint: .brandAccent))
+                                    .frame(maxWidth: .infinity)
+                                }
                             } else {
-                                if let featured = activities.first {
-                                    NavigationLink(value: featured.id) {
-                                        FeaturedActivityCard(activity: featured, distance: distance(of: featured))
+                                SectionHeaderView(title: nearMe && location.currentLocation != nil ? "Actividades cercanas" : "Todas las actividades")
+                                ForEach(activities) { activity in
+                                    NavigationLink(value: activity.id) {
+                                        ActivityRowView(activity: activity, distance: distance(of: activity))
                                     }
                                     .buttonStyle(.plain)
-                                }
-
-                                if activities.count > 1 {
-                                    SectionHeaderView(title: "Más actividades")
-                                        .padding(.top, 4)
-                                    ForEach(activities.dropFirst()) { activity in
-                                        NavigationLink(value: activity.id) {
-                                            ActivityRowView(activity: activity, distance: distance(of: activity))
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
                                 }
                             }
                         }
@@ -84,6 +117,7 @@ struct ActivityListView: View {
                     .background(Color.screenBackground)
                     .statusBarCover()
                     .refreshable { await load() }
+                    }
                 }
             }
             .background(Color.screenBackground)
@@ -151,10 +185,19 @@ struct ActivityListView: View {
             .foregroundStyle(Color.brandAccent)
     }
 
-    /// Barra de búsqueda + conmutador Lista / Mapa (SCRUM-40).
+    /// Búsqueda, filtros y conmutador Lista / Mapa.
     private var searchRow: some View {
         HStack(spacing: 10) {
             searchBar
+            Button { showFilterSheet = true } label: {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(filter.isEmpty ? Color.brandText : Color.brandAccent)
+                    .frame(width: 46, height: 46)
+                    .background(Color.cardBackground, in: Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(filter.isEmpty ? "Filtros" : "Filtros activos")
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) { showMap.toggle() }
             } label: {
@@ -271,31 +314,79 @@ struct ActivityListView: View {
     }
 
     private var searchBar: some View {
-        Button {
-            showFilterSheet = true
-        } label: {
-            HStack {
-                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                Text(filter.isEmpty ? "Buscar por deporte, zona, nivel…" : "Filtros activos")
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Image(systemName: "slider.horizontal.3")
-                    .foregroundStyle(filter.isEmpty ? .secondary : Color.brandAccent)
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            TextField("Buscar actividades…", text: $searchText)
+                .submitLabel(.search)
+                .accessibilityLabel("Buscar actividades por título, deporte, zona o nivel")
+            if !searchText.isEmpty {
+                Button { searchText = "" } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                }
+                .accessibilityLabel("Borrar búsqueda")
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 13)
-            .background(Color.cardBackground, in: Capsule())
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 46)
+        .background(Color.cardBackground, in: Capsule())
+    }
+
+    private var quickActions: some View {
+        HStack(spacing: 10) {
+            quickAction("Cerca de mí", icon: "location.fill", selected: nearMe) {
+                nearMe.toggle()
+                if nearMe { location.requestLocation() }
+            }
+            quickAction("Esta semana", icon: "calendar", selected: thisWeek) {
+                thisWeek.toggle()
+            }
+            quickAction("Ver mapa", icon: "map.fill", selected: false) {
+                withAnimation(.easeInOut(duration: 0.2)) { showMap = true }
+            }
+        }
+    }
+
+    private func quickAction(_ title: String, icon: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(selected ? .white : Color.brandAccent)
+                    .frame(width: 40, height: 40)
+                    .background(selected ? Color.brandAccent : Color.brandAccent.opacity(0.12), in: Circle())
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.brandText)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, minHeight: 30)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(Color.cardBackground, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityHint(title == "Esta semana" ? "Filtra los próximos siete días" : "")
+    }
+
+    private var upcomingCarousel: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(Array(upcomingActivities.prefix(8))) { activity in
+                    NavigationLink(value: activity.id) {
+                        UpcomingActivityCard(activity: activity)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.vertical, 2)
+        }
     }
 
     private var sportChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                FilterChip(label: "Cerca de mí", isSelected: nearMe) {
-                    nearMe.toggle()
-                    if nearMe { location.requestLocation() }
-                }
                 FilterChip(label: "Todos", isSelected: filter.sport == nil) {
                     filter.sport = nil
                 }
@@ -312,7 +403,12 @@ struct ActivityListView: View {
     /// datos ya cargados, para que marcar un chip se sienta instantáneo en vez
     /// de recargar toda la pantalla con cada toque.
     private var activities: [Activity] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let weekEnd = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
         let filtered = allActivities.filter { activity in
+            if !query.isEmpty && ![activity.title, activity.sport, activity.zone, activity.level.label]
+                .contains(where: { $0.localizedStandardContains(query) }) { return false }
+            if thisWeek && activity.scheduledAt > weekEnd { return false }
             if let sport = filter.sport, activity.sport.caseInsensitiveCompare(sport) != .orderedSame { return false }
             if let zone = filter.zone, !zone.isEmpty, !activity.zone.localizedCaseInsensitiveContains(zone) { return false }
             if let level = filter.level, activity.level != level { return false }
@@ -325,6 +421,14 @@ struct ActivityListView: View {
         guard nearMe, location.currentLocation != nil else { return filtered }
         // Más cercanas primero (SCRUM-36); las que no tienen coordenadas, al final.
         return filtered.sorted { (distance(of: $0) ?? .infinity) < (distance(of: $1) ?? .infinity) }
+    }
+
+    private var upcomingActivities: [Activity] {
+        activities.sorted { $0.scheduledAt < $1.scheduledAt }
+    }
+
+    private var hasActiveFilters: Bool {
+        !filter.isEmpty || !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || thisWeek
     }
 
     /// Distancia sólo cuando el usuario pidió verla y ya hay ubicación.
@@ -370,5 +474,48 @@ struct ActivityListView: View {
         } catch {
             errorMessage = "No se pudieron cargar las actividades."
         }
+    }
+}
+
+/// Tarjeta compacta para recorrer próximas actividades sin salir de Explorar.
+private struct UpcomingActivityCard: View {
+    let activity: Activity
+
+    private static let dateStyle: Date.FormatStyle = .dateTime
+        .day().month(.abbreviated).hour().minute().locale(Fmt.locale)
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ZStack(alignment: .bottomLeading) {
+                SportVisuals.gradient(for: activity.sport)
+                Image(systemName: SportVisuals.symbol(for: activity.sport))
+                    .font(.system(size: 56, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.25))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                Text(activity.sport.capitalized)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.white)
+                    .padding(12)
+            }
+            .frame(height: 105)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+            Text(activity.title)
+                .font(.headline)
+                .foregroundStyle(Color.brandText)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, minHeight: 42, alignment: .topLeading)
+            Label(activity.scheduledAt.formatted(Self.dateStyle), systemImage: "calendar")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            Label("\(max(activity.spotsLeft, 0)) lugares libres", systemImage: "person.2.fill")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.brandAccent)
+                .lineLimit(1)
+        }
+        .padding(12)
+        .frame(width: 220, alignment: .leading)
+        .background(Color.cardBackground, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 }
