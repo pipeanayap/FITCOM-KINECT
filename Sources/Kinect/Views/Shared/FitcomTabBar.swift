@@ -18,9 +18,14 @@ final class TabBarState {
     // Las pantallas de detalle pueden seguir montadas en pestañas inactivas.
     // Sus callbacks no deben ocultar la barra sobre la raíz de Explorar.
     var isHidden: Bool {
-        get { requestedHidden && !(activeTab == .explore && exploreAtRoot) }
+        get { searchOpen || (requestedHidden && !(activeTab == .explore && exploreAtRoot)) }
         set { requestedHidden = newValue }
     }
+    /// La búsqueda global de Explorar cubre toda la pantalla, también la barra.
+    /// Sólo cuenta mientras Explorar es la pestaña activa: la pantalla sigue
+    /// montada al cambiar de pestaña y no debe esconder la barra en las demás.
+    var searchActive = false
+    private var searchOpen: Bool { searchActive && activeTab == .explore }
     /// Borde superior en coordenadas de pantalla, incluido el botón Crear.
     var topEdge: CGFloat?
     /// Una pantalla pide cambiar de pestaña (p. ej. "Únete a tu primer grupo");
