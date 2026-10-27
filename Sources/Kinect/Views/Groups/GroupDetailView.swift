@@ -38,6 +38,25 @@ struct GroupDetailView: View {
                 }
 
                 membershipCard
+                if membershipLoaded && (isMember || isCreator) {
+                    NavigationLink {
+                        GroupChatView(group: group)
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "bubble.left.and.bubble.right.fill")
+                                .font(.title3)
+                                .foregroundStyle(Color.brandAccent)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Chat del grupo").font(.headline).foregroundStyle(Color.brandText)
+                                Text("Habla con los integrantes").font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
+                        }
+                        .cardStyle()
+                    }
+                    .buttonStyle(.plain)
+                }
                 if isCreator {
                     Button { showInvite = true } label: {
                         Label("Invitar personas", systemImage: "person.badge.plus")

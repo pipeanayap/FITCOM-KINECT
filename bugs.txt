@@ -13,3 +13,11 @@ si te vas a perfil y sleccionas alguno de los campos para iniciar sesion pero
  luego acompletas con el face id, despues de iniciar no sale tu info, porque 
  nor einicia los estados
 
+
+
+poner si asisto y si llevo más gente, para saber cuanta gente se arma
+
+integrar chat en grupo
+
+añadir al crear actividad la parte que si se necesita algun  requisito como formar 
+parte de un club deportivo o credencial estudiantil. En caso de no tener ninguno poder marcar que no se necesita ningun requisito

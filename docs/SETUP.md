@@ -102,6 +102,28 @@ Comprobación manual pendiente en un iPhone:
 6. Reemplazar/cancelar un video y eliminar una historia publicada; verificar que
    se limpien sus archivos temporales y que el borrado use el bucket correcto.
 
+### Chat de grupos
+
+Ejecuta el contenido completo de
+`supabase/migrations/20261027100000_group_chat.sql` en SQL Editor (o con
+`supabase db push`) antes de probar. Crea `group_messages` con RLS: sólo los
+integrantes del grupo leen y escriben (máx. 1000 caracteres), el autor borra
+los suyos y el creador del grupo puede borrar cualquiera. También agrega la
+tabla a la publicación `supabase_realtime` para recibir mensajes en vivo; si
+Realtime no conecta, la app consulta cada 4 segundos.
+
+El chat se abre desde el detalle del grupo, en «Chat del grupo» (sólo
+integrantes). Mantén presionado un mensaje para copiarlo o eliminarlo.
+
+Comprobación manual con dos cuentas (ambas integrantes del mismo grupo):
+
+1. Enviar un mensaje desde A y verificar que B lo vea sin recargar.
+2. Verificar que una cuenta que no es integrante no vea el botón del chat ni
+   pueda leer `group_messages` con la API autenticada.
+3. Borrar un mensaje propio; verificar que el creador pueda borrar uno ajeno
+   y que un integrante normal no pueda borrar el de otra persona.
+4. Salir del grupo y verificar que ya no pueda leer ni escribir.
+
 ### Datos de prueba
 
 `supabase/seed.sql` crea 3 usuarios y un par de actividades de ejemplo.

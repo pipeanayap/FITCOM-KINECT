@@ -19,7 +19,6 @@ struct ActivityListView: View {
     @State private var showSearch = false
     @State private var nearMe = false
     @State private var thisWeek = false
-    @State private var searchText = ""
     @State private var path = NavigationPath()
     @State private var showMap = false
     @State private var selectedMapActivityId: UUID?
@@ -94,7 +93,6 @@ struct ActivityListView: View {
                                 if hasActiveFilters {
                                     Button("Limpiar filtros") {
                                         filter = .empty
-                                        searchText = ""
                                         thisWeek = false
                                         nearMe = false
                                     }
@@ -322,21 +320,21 @@ struct ActivityListView: View {
     /// Al tocar la barra se abre la búsqueda global a pantalla completa
     /// (`GlobalSearchView`); los filtros viven en su propio botón.
     private var searchBar: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField("Buscar actividades…", text: $searchText)
-                .submitLabel(.search)
-                .accessibilityLabel("Buscar actividades por título, deporte, zona o nivel")
-            if !searchText.isEmpty {
-                Button { searchText = "" } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-                }
-                .accessibilityLabel("Borrar búsqueda")
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) { showSearch = true }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                Text("Buscar")
+                    .foregroundStyle(.secondary)
+                Spacer()
             }
+            .padding(.horizontal, 14)
+            .frame(height: 46)
+            .background(Color.cardBackground, in: Capsule())
         }
-        .padding(.horizontal, 14)
-        .frame(height: 46)
-        .background(Color.cardBackground, in: Capsule())
+        .buttonStyle(.plain)
+        .accessibilityLabel("Buscar personas, actividades, grupos y lugares")
     }
 
     private var quickActions: some View {
@@ -425,11 +423,8 @@ struct ActivityListView: View {
     /// datos ya cargados, para que marcar un chip se sienta instantáneo en vez
     /// de recargar toda la pantalla con cada toque.
     private var activities: [Activity] {
-        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         let weekEnd = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
         let filtered = allActivities.filter { activity in
-            if !query.isEmpty && ![activity.title, activity.sport, activity.zone, activity.level.label]
-                .contains(where: { $0.localizedStandardContains(query) }) { return false }
             if thisWeek && activity.scheduledAt > weekEnd { return false }
             if let sport = filter.sport, activity.sport.caseInsensitiveCompare(sport) != .orderedSame { return false }
             if let zone = filter.zone, !zone.isEmpty, !activity.zone.localizedCaseInsensitiveContains(zone) { return false }
@@ -450,7 +445,7 @@ struct ActivityListView: View {
     }
 
     private var hasActiveFilters: Bool {
-        !filter.isEmpty || !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || thisWeek
+        !filter.isEmpty || thisWeek
     }
 
     /// Distancia sólo cuando el usuario pidió verla y ya hay ubicación.
