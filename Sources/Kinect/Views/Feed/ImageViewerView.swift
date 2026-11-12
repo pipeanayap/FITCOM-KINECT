@@ -84,7 +84,7 @@ struct ImageViewerView: View {
                         .glassSurface(Circle(), interactive: true)
                         .contentShape(Circle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.fitcomPressable)
                 .accessibilityLabel("Cerrar")
                 Spacer()
             }
@@ -127,7 +127,7 @@ struct ImageViewerView: View {
                     .frame(height: 48)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.fitcomPressable)
                 .disabled(!authStore.isSignedIn)
 
                 Button {
@@ -144,7 +144,7 @@ struct ImageViewerView: View {
                     .frame(height: 48)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.fitcomPressable)
             }
             .glassSurface(Capsule())
         }

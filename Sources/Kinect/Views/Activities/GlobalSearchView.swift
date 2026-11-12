@@ -79,7 +79,7 @@ struct GlobalSearchView: View {
                     } label: {
                         Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.fitcomPressable)
                     .accessibilityLabel("Borrar búsqueda")
                 }
             }
@@ -148,7 +148,7 @@ struct GlobalSearchView: View {
             SectionHeaderView(title: "Personas")
             ForEach(people.prefix(cap)) { person in
                 NavigationLink(value: ProfileRoute(userId: person.id)) { personRow(person) }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.fitcomPressable)
             }
         }
     }
@@ -159,7 +159,7 @@ struct GlobalSearchView: View {
             SectionHeaderView(title: "Actividades").padding(.top, 4)
             ForEach(matchedActivities.prefix(cap)) { activity in
                 NavigationLink(value: activity.id) { ActivityRowView(activity: activity) }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.fitcomPressable)
             }
         }
     }
@@ -170,7 +170,7 @@ struct GlobalSearchView: View {
             SectionHeaderView(title: "Grupos").padding(.top, 4)
             ForEach(groups.prefix(cap)) { group in
                 NavigationLink(value: GroupRoute(id: group.id)) { GroupRowView(group: group) }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.fitcomPressable)
             }
         }
     }
@@ -181,23 +181,14 @@ struct GlobalSearchView: View {
             SectionHeaderView(title: "Lugares").padding(.top, 4)
             ForEach(matchedPlaces.prefix(cap)) { place in
                 NavigationLink(value: place) { placeRow(place) }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.fitcomPressable)
             }
         }
     }
 
     private func personRow(_ person: PersonResult) -> some View {
         HStack(spacing: 14) {
-            CachedAsyncImage(url: person.avatarUrl.flatMap { URL(string: $0) }) {
-                ZStack {
-                    Circle().fill(Color.brandAccent.opacity(0.15))
-                    Text(initials(person.fullName))
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(Color.brandAccent)
-                }
-            }
-            .frame(width: 50, height: 50)
-            .clipShape(Circle())
+            AvatarView(url: person.avatarUrl, name: person.fullName, size: 50)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(person.fullName).font(.headline).foregroundStyle(Color.brandText).lineLimit(1)
@@ -215,7 +206,7 @@ struct GlobalSearchView: View {
                 Circle().fill(Color.brandPrimary.opacity(0.15))
                 Image(systemName: place.categorySymbol)
                     .font(.system(size: 19, weight: .semibold))
-                    .foregroundStyle(Color.brandPrimary)
+                    .foregroundStyle(Color.brandPrimaryText)
             }
             .frame(width: 50, height: 50)
 
@@ -248,10 +239,6 @@ struct GlobalSearchView: View {
         .padding(.bottom, 60)
     }
 
-    private func initials(_ name: String) -> String {
-        String(name.split(separator: " ").prefix(2).compactMap { $0.first }).uppercased()
-    }
-
     // MARK: - Búsqueda en el servidor
 
     /// Espera a que se deje de escribir y consulta personas y grupos a la vez.
@@ -272,6 +259,7 @@ struct GlobalSearchView: View {
         async let foundPeople = try? SearchService.people(query)
         async let foundGroups = try? SearchService.groups(query)
         let (p, g) = await (foundPeople, foundGroups)
+        if p == nil && g == nil { AppLog.search.error("La búsqueda no pudo consultar al servidor") }
         guard !Task.isCancelled else { return }
         failed = p == nil && g == nil
         people = p ?? []

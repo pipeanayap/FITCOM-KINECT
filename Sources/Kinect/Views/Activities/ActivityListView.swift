@@ -23,13 +23,17 @@ struct ActivityListView: View {
     @State private var showMap = false
     @State private var selectedMapActivityId: UUID?
     @State private var places: [Place] = []
+    /// Caras de quienes organizan y van, por actividad (se cargan después del listado).
+    @State private var social: [UUID: ActivitySocial] = [:]
+    /// Cuántas actividades de la lista larga se pintan; "Mostrar más" sube el tope.
+    @State private var visibleCount = 30
     @State private var location = LocationService.shared
 
     var body: some View {
         NavigationStack(path: $path) {
             Group {
                 if isLoading {
-                    LoadingStateView()
+                    loadingSkeleton
                 } else if let errorMessage {
                     ErrorStateView(message: errorMessage, retry: load)
                 } else if showMap {
@@ -43,9 +47,9 @@ struct ActivityListView: View {
 
                             if let featured = upcomingActivities.first {
                                 NavigationLink(value: featured.id) {
-                                    FeaturedActivityCard(activity: featured, distance: distance(of: featured))
+                                    FeaturedActivityCard(activity: featured, distance: distance(of: featured), social: social[featured.id])
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(.fitcomPressable)
                             }
 
                             quickActions
@@ -70,7 +74,7 @@ struct ActivityListView: View {
                                         withAnimation { scroll.scrollTo("activity-list", anchor: .top) }
                                     }
                                     .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(Color.brandAccent)
+                                    .foregroundStyle(Color.brandAccentText)
                                 }
                                 upcomingCarousel
                             }
@@ -87,7 +91,9 @@ struct ActivityListView: View {
                                     message: !hasActiveFilters
                                         ? "Cuando alguien publique una actividad, aparecerá aquí."
                                         : "Intenta con otros filtros o límpialos.",
-                                    systemImage: "figure.run.circle"
+                                    systemImage: "figure.run.circle",
+                                    actionTitle: hasActiveFilters ? nil : "Crear actividad",
+                                    action: hasActiveFilters ? nil : { tabBar.requestedCreate = .activity }
                                 )
                                 .padding(.top, 20)
                                 if hasActiveFilters {
@@ -101,11 +107,20 @@ struct ActivityListView: View {
                                 }
                             } else {
                                 SectionHeaderView(title: nearMe && location.currentLocation != nil ? "Actividades cercanas" : "Todas las actividades")
-                                ForEach(activities) { activity in
-                                    NavigationLink(value: activity.id) {
-                                        ActivityRowView(activity: activity, distance: distance(of: activity))
+                                LazyVStack(spacing: 12) {
+                                    ForEach(activities.prefix(visibleCount)) { activity in
+                                        NavigationLink(value: activity.id) {
+                                            ActivityRowView(activity: activity, distance: distance(of: activity), social: social[activity.id])
+                                        }
+                                        .buttonStyle(.fitcomPressable)
                                     }
-                                    .buttonStyle(.plain)
+                                }
+                                if activities.count > visibleCount {
+                                    Button("Mostrar más (\(activities.count - visibleCount))") {
+                                        visibleCount += 30
+                                    }
+                                    .buttonStyle(.fitcomSecondary(tint: .brandAccent))
+                                    .frame(maxWidth: .infinity)
                                 }
                             }
                         }
@@ -119,6 +134,7 @@ struct ActivityListView: View {
                     }
                 }
             }
+            .animation(.easeOut(duration: 0.18), value: isLoading)
             .background(Color.screenBackground)
             .overlay {
                 if showSearch {
@@ -153,48 +169,57 @@ struct ActivityListView: View {
             .onChange(of: showSearch) { _, searching in
                 tabBar.searchActive = searching
             }
+            .onChange(of: tabBar.requestedActivityId) { _, id in
+                guard let id else { return }
+                tabBar.requestedActivityId = nil
+                path.append(id)
+            }
             .onChange(of: filter.maxDistanceKm) { _, new in
                 if new != nil { location.requestLocation() }
             }
+            .onChange(of: filter) { visibleCount = 30 }
+            .onChange(of: thisWeek) { visibleCount = 30 }
+            .onChange(of: nearMe) { visibleCount = 30 }
         }
+    }
+
+    /// Mientras carga por primera vez: encabezado real y tarjetas esqueleto, para
+    /// que la pantalla ya tenga su forma y el contenido entre con un fundido.
+    private var loadingSkeleton: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                header
+                searchRow
+                SkeletonList(count: 4)
+            }
+            .padding(.horizontal)
+            .padding(.top, 8)
+        }
+        .scrollDisabled(true)
+        .background(Color.screenBackground)
+        .statusBarCover()
     }
 
     private var header: some View {
         HStack(alignment: .center) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(greeting)
-                    .font(.largeTitle.bold())
+                    .font(.displayXL)
                     .foregroundStyle(Color.brandText)
-                Text("Encuentra con quién moverte hoy")
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Text("\(Brand.tagline) hoy")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
             Spacer()
             Button(action: onOpenProfile) {
-                ZStack {
-                    Circle().fill(Color.brandAccent.opacity(0.15)).frame(width: 46, height: 46)
-                    if let urlString = authStore.profile?.avatarUrl, let url = URL(string: urlString), !urlString.isEmpty {
-                        AsyncImage(url: url) { image in
-                            image.resizable().scaledToFill()
-                        } placeholder: {
-                            avatarInitials
-                        }
-                        .frame(width: 46, height: 46)
-                        .clipShape(Circle())
-                    } else {
-                        avatarInitials
-                    }
-                }
+                AvatarView(url: authStore.profile?.avatarUrl, name: authStore.profile?.fullName ?? "", size: 46)
             }
-            .buttonStyle(.plain)
+            .accessibilityLabel("Abrir menú de perfil")
+            .buttonStyle(.fitcomPressable)
         }
         .padding(.top, 4)
-    }
-
-    private var avatarInitials: some View {
-        Text(initials)
-            .font(.subheadline.weight(.bold))
-            .foregroundStyle(Color.brandAccent)
     }
 
     /// Barra de búsqueda + botón de filtros + conmutador Lista / Mapa (SCRUM-40).
@@ -211,7 +236,7 @@ struct ActivityListView: View {
                     .frame(width: 46, height: 46)
                     .background(showMap ? Color.brandAccent : Color.cardBackground, in: Circle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.fitcomPressable)
             .accessibilityLabel(showMap ? "Ver lista" : "Ver mapa")
         }
     }
@@ -333,7 +358,7 @@ struct ActivityListView: View {
             .frame(height: 46)
             .background(Color.cardBackground, in: Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.fitcomPressable)
         .accessibilityLabel("Buscar personas, actividades, grupos y lugares")
     }
 
@@ -371,7 +396,7 @@ struct ActivityListView: View {
             .padding(.vertical, 12)
             .background(Color.cardBackground, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.fitcomPressable)
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityHint(title == "Esta semana" ? "Filtra los próximos siete días" : "")
     }
@@ -381,9 +406,9 @@ struct ActivityListView: View {
             HStack(spacing: 12) {
                 ForEach(Array(upcomingActivities.prefix(8))) { activity in
                     NavigationLink(value: activity.id) {
-                        UpcomingActivityCard(activity: activity)
+                        UpcomingActivityCard(activity: activity, social: social[activity.id])
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.fitcomPressable)
                 }
             }
             .padding(.vertical, 2)
@@ -400,7 +425,7 @@ struct ActivityListView: View {
                 .frame(width: 46, height: 46)
                 .background(filter.isEmpty ? Color.cardBackground : Color.brandAccent, in: Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.fitcomPressable)
         .accessibilityLabel(filter.isEmpty ? "Filtros" : "Filtros activos")
     }
 
@@ -437,7 +462,8 @@ struct ActivityListView: View {
         }
         guard nearMe, location.currentLocation != nil else { return filtered }
         // Más cercanas primero (SCRUM-36); las que no tienen coordenadas, al final.
-        return filtered.sorted { (distance(of: $0) ?? .infinity) < (distance(of: $1) ?? .infinity) }
+        let distances = Dictionary(uniqueKeysWithValues: filtered.map { ($0.id, distance(of: $0) ?? .infinity) })
+        return filtered.sorted { (distances[$0.id] ?? .infinity) < (distances[$1.id] ?? .infinity) }
     }
 
     private var upcomingActivities: [Activity] {
@@ -474,22 +500,23 @@ struct ActivityListView: View {
         return "Hola, \(name)"
     }
 
-    private var initials: String {
-        guard let name = authStore.profile?.fullName, !name.isEmpty else { return "?" }
-        let parts = name.split(separator: " ")
-        let letters = parts.prefix(2).compactMap { $0.first }
-        return String(letters).uppercased()
-    }
-
     private func load() async {
         errorMessage = nil
         isLoading = allActivities.isEmpty
         defer { isLoading = false }
         do {
             allActivities = try await ActivityService.list()
-            places = (try? await PlaceService.list()) ?? places
+            // Las caras llegan después, sin hacer esperar al listado.
+            let loaded = allActivities
+            Task { social = await ActivitySocialService.load(for: Array(loaded.prefix(60))) }
+            do {
+                places = try await PlaceService.list()
+            } catch {
+                AppLog.activities.error("Cargar lugares falló: \(error.localizedDescription, privacy: .public)")
+            }
         } catch {
-            errorMessage = "No se pudieron cargar las actividades."
+            AppLog.activities.error("Cargar actividades falló: \(error.localizedDescription, privacy: .public)")
+            errorMessage = ErrorText.describe(error, fallback: "No se pudieron cargar las actividades.")
         }
     }
 }
@@ -497,42 +524,47 @@ struct ActivityListView: View {
 /// Tarjeta compacta para recorrer próximas actividades sin salir de Explorar.
 private struct UpcomingActivityCard: View {
     let activity: Activity
-
-    private static let dateStyle: Date.FormatStyle = .dateTime
-        .day().month(.abbreviated).hour().minute().locale(Fmt.locale)
+    var social: ActivitySocial?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             ZStack(alignment: .bottomLeading) {
                 SportVisuals.gradient(for: activity.sport)
                 Image(systemName: SportVisuals.symbol(for: activity.sport))
-                    .font(.system(size: 56, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.25))
+                    .font(.system(size: 64, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.22))
+                    .rotationEffect(.degrees(-10))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                Text(activity.sport.capitalized)
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.white)
-                    .padding(12)
+                Text(Fmt.dayChip(activity.scheduledAt))
+                    .metaCaps(.white)
+                    .lineLimit(1)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(.black.opacity(0.22), in: Capsule())
+                    .padding(10)
             }
-            .frame(height: 105)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .frame(height: 110)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
 
             Text(activity.title)
-                .font(.headline)
+                .font(.cardTitle)
                 .foregroundStyle(Color.brandText)
                 .lineLimit(2)
                 .frame(maxWidth: .infinity, minHeight: 42, alignment: .topLeading)
-            Label(activity.scheduledAt.formatted(Self.dateStyle), systemImage: "calendar")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            Label("\(max(activity.spotsLeft, 0)) lugares libres", systemImage: "person.2.fill")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Color.brandAccent)
-                .lineLimit(1)
+
+            HStack(spacing: 6) {
+                if let social, !social.attendees.isEmpty {
+                    AvatarStack(people: social.attendees, total: activity.participantCount, size: 22)
+                }
+                Spacer(minLength: 0)
+                Text(Fmt.freeShort(activity.spotsLeft))
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(Color.brandAccentText)
+            }
+            CapacityBar(filled: activity.participantCount, capacity: activity.capacity)
         }
         .padding(12)
-        .frame(width: 220, alignment: .leading)
-        .background(Color.cardBackground, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .frame(width: 230, alignment: .leading)
+        .background(Color.cardBackground, in: RoundedRectangle(cornerRadius: DS.cardRadius, style: .continuous))
     }
 }

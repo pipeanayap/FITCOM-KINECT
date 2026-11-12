@@ -48,7 +48,7 @@ struct ComposePostView: View {
                                                 .font(.system(size: 20))
                                                 .foregroundStyle(.white, .black.opacity(0.6))
                                         }
-                                        .buttonStyle(.plain)
+                                        .buttonStyle(.fitcomPressable)
                                         .padding(4)
                                     }
                                 }

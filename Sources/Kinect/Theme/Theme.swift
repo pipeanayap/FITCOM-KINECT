@@ -26,6 +26,21 @@ extension Color {
             : UIColor(red: 0.08, green: 0.08, blue: 0.10, alpha: 1)
     })
 
+    // Variantes para TEXTO chico (< 18 pt): los colores de marca de arriba dan
+    // entre 2.4:1 y 3.6:1 sobre blanco, y el mínimo para texto normal es 4.5:1.
+    // En modo oscuro los originales ya contrastan bien contra el fondo.
+    static let brandAccentText = adaptive(light: (0.80, 0.22, 0.10), dark: (1.00, 0.36, 0.22))
+    static let brandPrimaryText = adaptive(light: (0.05, 0.42, 0.32), dark: (0.11, 0.60, 0.47))
+    static let brandWarningText = adaptive(light: (0.60, 0.35, 0.00), dark: (0.93, 0.58, 0.08))
+    static let brandDangerText = adaptive(light: (0.78, 0.12, 0.12), dark: (1.00, 0.42, 0.38))
+
+    private static func adaptive(light: (Double, Double, Double), dark: (Double, Double, Double)) -> Color {
+        Color(uiColor: UIColor { trait in
+            let c = trait.userInterfaceStyle == .dark ? dark : light
+            return UIColor(red: c.0, green: c.1, blue: c.2, alpha: 1)
+        })
+    }
+
     static let screenBackground = Color(uiColor: .systemGroupedBackground)
     static let cardBackground = Color(uiColor: .secondarySystemGroupedBackground)
 }
@@ -34,7 +49,7 @@ extension Color {
 
 struct CardBackground: ViewModifier {
     var padding: CGFloat = 16
-    var radius: CGFloat = 20
+    var radius: CGFloat = DS.cardRadius
 
     func body(content: Content) -> some View {
         content
@@ -54,7 +69,7 @@ extension View {
         }
     }
 
-    func cardStyle(padding: CGFloat = 16, radius: CGFloat = 20) -> some View {
+    func cardStyle(padding: CGFloat = 16, radius: CGFloat = DS.cardRadius) -> some View {
         modifier(CardBackground(padding: padding, radius: radius))
     }
 }
@@ -97,6 +112,70 @@ struct InkButtonStyle: ButtonStyle {
     }
 }
 
+/// Para tarjetas y filas tocables: no cambia su aspecto, sólo se hunde un poco
+/// al presionar (feedback inmediato, igual que los botones de la app). Con
+/// "Reducir movimiento" no escala: sólo baja la opacidad.
+struct PressableStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        PressableBody(configuration: configuration)
+    }
+
+    private struct PressableBody: View {
+        let configuration: ButtonStyleConfiguration
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        var body: some View {
+            configuration.label
+                .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
+                .opacity(configuration.isPressed && reduceMotion ? 0.7 : 1)
+                .animation(.easeOut(duration: 0.14), value: configuration.isPressed)
+        }
+    }
+}
+
+extension ButtonStyle where Self == PressableStyle {
+    static var fitcomPressable: PressableStyle { PressableStyle() }
+}
+
+/// Tarjeta "esqueleto" para listas que están cargando: mantiene la forma de
+/// la pantalla en lugar de un spinner solo, y el contenido real entra con
+/// un fundido corto.
+struct SkeletonCard: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var dim = false
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            Circle().frame(width: 50, height: 50)
+            VStack(alignment: .leading, spacing: 9) {
+                RoundedRectangle(cornerRadius: 5).frame(width: 170, height: 14)
+                RoundedRectangle(cornerRadius: 5).frame(height: 10)
+                RoundedRectangle(cornerRadius: 5).frame(width: 120, height: 10)
+            }
+        }
+        .foregroundStyle(Color.primary.opacity(dim ? 0.07 : 0.13))
+        .cardStyle()
+        .accessibilityHidden(true)
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { dim = true }
+        }
+    }
+}
+
+/// Varias tarjetas esqueleto seguidas, para usar como estado de carga de una lista.
+struct SkeletonList: View {
+    var count = 4
+
+    var body: some View {
+        VStack(spacing: 12) {
+            ForEach(0..<count, id: \.self) { _ in SkeletonCard() }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Cargando")
+    }
+}
+
 struct SecondaryButtonStyle: ButtonStyle {
     var tint: Color = .brandInk
 
@@ -136,7 +215,7 @@ struct SectionHeaderView: View {
 
     var body: some View {
         Text(title)
-            .font(.title3.bold())
+            .font(.displayM)
             .foregroundStyle(Color.brandText)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -159,8 +238,11 @@ struct FilterChip: View {
                 // (con el negro de la marca se perdía contra el fondo oscuro).
                 .background(isSelected ? Color.brandAccent : Color.cardBackground, in: Capsule())
                 .foregroundStyle(isSelected ? .white : Color.brandText)
+                // El chip mide ~36 pt; el área de toque llega a 44 pt (mínimo de Apple).
+                .padding(.vertical, 4)
+                .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.fitcomPressable)
         .animation(.easeInOut(duration: 0.15), value: isSelected)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
@@ -202,21 +284,16 @@ struct StickyActionBar<Content: View>: View {
 enum SportVisuals {
     private static let table: [String: (symbol: String, colors: [Color])] = [
         "futbol": ("soccerball", [Color(red: 0.07, green: 0.45, blue: 0.34), Color(red: 0.03, green: 0.25, blue: 0.20)]),
-        "fútbol": ("soccerball", [Color(red: 0.07, green: 0.45, blue: 0.34), Color(red: 0.03, green: 0.25, blue: 0.20)]),
         "basquetbol": ("basketball.fill", [Color(red: 0.95, green: 0.45, blue: 0.13), Color(red: 0.65, green: 0.25, blue: 0.05)]),
-        "básquetbol": ("basketball.fill", [Color(red: 0.95, green: 0.45, blue: 0.13), Color(red: 0.65, green: 0.25, blue: 0.05)]),
         "baloncesto": ("basketball.fill", [Color(red: 0.95, green: 0.45, blue: 0.13), Color(red: 0.65, green: 0.25, blue: 0.05)]),
         "voleibol": ("volleyball.fill", [Color(red: 0.93, green: 0.58, blue: 0.08), Color(red: 0.55, green: 0.33, blue: 0.02)]),
-        "vóleibol": ("volleyball.fill", [Color(red: 0.93, green: 0.58, blue: 0.08), Color(red: 0.55, green: 0.33, blue: 0.02)]),
         "tenis": ("tennisball.fill", [Color(red: 0.42, green: 0.55, blue: 0.14), Color(red: 0.20, green: 0.28, blue: 0.06)]),
         "running": ("figure.run", [Color(red: 1.00, green: 0.36, blue: 0.22), Color(red: 0.55, green: 0.14, blue: 0.06)]),
         "correr": ("figure.run", [Color(red: 1.00, green: 0.36, blue: 0.22), Color(red: 0.55, green: 0.14, blue: 0.06)]),
         "ciclismo": ("figure.outdoor.cycle", [Color(red: 0.11, green: 0.45, blue: 0.60), Color(red: 0.05, green: 0.22, blue: 0.32)]),
         "natacion": ("figure.pool.swim", [Color(red: 0.11, green: 0.50, blue: 0.65), Color(red: 0.04, green: 0.24, blue: 0.34)]),
-        "natación": ("figure.pool.swim", [Color(red: 0.11, green: 0.50, blue: 0.65), Color(red: 0.04, green: 0.24, blue: 0.34)]),
         "yoga": ("figure.yoga", [Color(red: 0.55, green: 0.40, blue: 0.65), Color(red: 0.28, green: 0.18, blue: 0.36)]),
         "padel": ("figure.tennis", [Color(red: 0.14, green: 0.45, blue: 0.40), Color(red: 0.06, green: 0.22, blue: 0.20)]),
-        "pádel": ("figure.tennis", [Color(red: 0.14, green: 0.45, blue: 0.40), Color(red: 0.06, green: 0.22, blue: 0.20)]),
         "spinning": ("figure.indoor.cycle", [Color(red: 0.80, green: 0.15, blue: 0.35), Color(red: 0.42, green: 0.05, blue: 0.18)]),
         "crossfit": ("figure.strengthtraining.traditional", [Color(red: 0.25, green: 0.25, blue: 0.28), Color(red: 0.10, green: 0.10, blue: 0.12)]),
         "boxeo": ("figure.boxing", [Color(red: 0.70, green: 0.10, blue: 0.12), Color(red: 0.35, green: 0.04, blue: 0.05)]),
@@ -224,14 +301,16 @@ enum SportVisuals {
         "senderismo": ("figure.hiking", [Color(red: 0.30, green: 0.42, blue: 0.18), Color(red: 0.15, green: 0.22, blue: 0.08)]),
         "escalada": ("figure.climbing", [Color(red: 0.45, green: 0.32, blue: 0.20), Color(red: 0.22, green: 0.15, blue: 0.09)]),
         "badminton": ("figure.badminton", [Color(red: 0.15, green: 0.55, blue: 0.55), Color(red: 0.06, green: 0.28, blue: 0.28)]),
-        "bádminton": ("figure.badminton", [Color(red: 0.15, green: 0.55, blue: 0.55), Color(red: 0.06, green: 0.28, blue: 0.28)]),
         "beisbol": ("figure.baseball", [Color(red: 0.13, green: 0.35, blue: 0.62), Color(red: 0.06, green: 0.17, blue: 0.32)]),
-        "béisbol": ("figure.baseball", [Color(red: 0.13, green: 0.35, blue: 0.62), Color(red: 0.06, green: 0.17, blue: 0.32)]),
         "futbol americano": ("football.fill", [Color(red: 0.55, green: 0.33, blue: 0.10), Color(red: 0.28, green: 0.16, blue: 0.04)]),
-        "fútbol americano": ("football.fill", [Color(red: 0.55, green: 0.33, blue: 0.10), Color(red: 0.28, green: 0.16, blue: 0.04)]),
         "artes marciales": ("figure.martial.arts", [Color(red: 0.12, green: 0.12, blue: 0.14), Color(red: 0.03, green: 0.03, blue: 0.04)]),
         "danza": ("figure.dance", [Color(red: 0.75, green: 0.25, blue: 0.55), Color(red: 0.40, green: 0.10, blue: 0.28)]),
     ]
+
+    /// "Fútbol", "futbol" y "FÚTBOL" son el mismo deporte.
+    private static func key(_ sport: String) -> String {
+        sport.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil)
+    }
 
     private static let fallback: (symbol: String, colors: [Color]) =
         ("sportscourt.fill", [Color.brandAccent, Color.brandInk])
@@ -246,15 +325,15 @@ enum SportVisuals {
     ]
 
     static func symbol(for sport: String) -> String {
-        (table[sport.lowercased()] ?? fallback).symbol
+        (table[key(sport)] ?? fallback).symbol
     }
 
     static func solidColor(for sport: String) -> Color {
-        (table[sport.lowercased()] ?? fallback).colors[0]
+        (table[key(sport)] ?? fallback).colors[0]
     }
 
     static func gradient(for sport: String) -> LinearGradient {
-        let colors = (table[sport.lowercased()] ?? fallback).colors
+        let colors = (table[key(sport)] ?? fallback).colors
         return LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
     }
 }

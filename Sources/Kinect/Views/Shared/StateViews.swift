@@ -48,6 +48,9 @@ struct EmptyStateView: View {
     var title: String
     var message: String
     var systemImage: String = "tray"
+    /// Botón opcional para que un estado vacío lleve a algo ("Crear actividad").
+    var actionTitle: String?
+    var action: (() -> Void)?
 
     var body: some View {
         VStack(spacing: 14) {
@@ -62,6 +65,11 @@ struct EmptyStateView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+            if let actionTitle, let action {
+                Button(actionTitle, action: action)
+                    .buttonStyle(.fitcomPrimary(disabled: false, fullWidth: false))
+                    .padding(.top, 6)
+            }
         }
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

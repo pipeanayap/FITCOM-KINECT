@@ -32,7 +32,7 @@ struct ActivityMapOverview: View {
             HStack(spacing: 8) {
                 Label(activity.sport.capitalized, systemImage: SportVisuals.symbol(for: activity.sport))
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.brandAccent)
+                    .foregroundStyle(Color.brandAccentText)
                 Spacer()
                 StatusBadge(status: activity.computedStatus)
                 Button(action: onClose) {
@@ -42,7 +42,7 @@ struct ActivityMapOverview: View {
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.fitcomPressable)
                 .accessibilityLabel("Cerrar resumen")
             }
             .fixedSize(horizontal: false, vertical: true)
@@ -60,7 +60,7 @@ struct ActivityMapOverview: View {
                     Label(activity.scheduledAt.formatted(Self.dateStyle), systemImage: "calendar")
                     Label(activity.zone, systemImage: "mappin.and.ellipse")
                     Label(activity.level.label, systemImage: "gauge.with.dots.needle.50percent")
-                    Label("\(max(activity.spotsLeft, 0)) lugares libres de \(activity.capacity)", systemImage: "person.2.fill")
+                    Label("\(Fmt.spotsFree(activity.spotsLeft)) de \(activity.capacity)", systemImage: "person.2.fill")
                     if let cost = activity.estimatedCost {
                         Label("Costo estimado: \(cost.formatted(.currency(code: "MXN")))", systemImage: "dollarsign.circle")
                     }

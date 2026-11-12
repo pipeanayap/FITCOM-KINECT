@@ -15,6 +15,8 @@ struct MyActivitiesView: View {
     @State private var errorMessage: String?
     @State private var feedbackTarget: Activity?
 
+    @Environment(TabBarState.self) private var tabBar
+
     var body: some View {
         NavigationStack {
             Group {
@@ -22,17 +24,29 @@ struct MyActivitiesView: View {
                     EmptyStateView(
                         title: "Inicia sesión",
                         message: "Necesitas una cuenta para ver tus actividades.",
-                        systemImage: "lock"
+                        systemImage: "lock",
+                        actionTitle: "Iniciar sesión",
+                        action: { tabBar.requestedAuthReason = "Inicia sesión para ver tus actividades." }
                     )
                 } else if isLoading {
-                    LoadingStateView()
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 18) {
+                            SectionHeaderView(title: "Mis planes")
+                            SkeletonList(count: 3)
+                        }
+                        .padding()
+                    }
+                    .scrollDisabled(true)
+                    .background(Color.screenBackground)
                 } else if let errorMessage {
                     ErrorStateView(message: errorMessage) { await load() }
                 } else if organized.isEmpty && joined.isEmpty {
                     EmptyStateView(
                         title: "Todavía no tienes actividades",
                         message: "Crea una actividad o únete a alguna desde Explorar.",
-                        systemImage: "calendar.badge.plus"
+                        systemImage: "calendar.badge.plus",
+                        actionTitle: "Explorar actividades",
+                        action: { tabBar.requestedTab = .explore }
                     )
                 } else {
                     ScrollView {
@@ -44,7 +58,7 @@ struct MyActivitiesView: View {
                                         NavigationLink(value: activity.id) {
                                             ActivityRowView(activity: activity)
                                         }
-                                        .buttonStyle(.plain)
+                                        .buttonStyle(.fitcomPressable)
                                     }
                                 }
                             }
@@ -56,7 +70,7 @@ struct MyActivitiesView: View {
                                             NavigationLink(value: entry.activity.id) {
                                                 ActivityRowView(activity: entry.activity)
                                             }
-                                            .buttonStyle(.plain)
+                                            .buttonStyle(.fitcomPressable)
                                             if entry.activity.computedStatus == .finalizada
                                                 && entry.participation.status == .activa {
                                                 Button("Calificar experiencia") {

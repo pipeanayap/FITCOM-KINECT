@@ -67,7 +67,7 @@ struct PostCardView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.fitcomPressable)
                 .padding(.horizontal, 16)
             }
         }
@@ -100,7 +100,7 @@ struct PostCardView: View {
                     }
                 }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.fitcomPressable)
             Spacer()
             if authStore.isSignedIn { menu }
         }
@@ -127,7 +127,7 @@ struct PostCardView: View {
     private var initials: some View {
         Text(String(post.authorName.split(separator: " ").prefix(2).compactMap { $0.first }).uppercased())
             .font(.caption.weight(.bold))
-            .foregroundStyle(Color.brandAccent)
+            .foregroundStyle(Color.brandAccentText)
     }
 
     private var menu: some View {
@@ -232,9 +232,10 @@ struct PostCardView: View {
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundStyle(post.likedByMe ? Color.red : (onPhoto ? .white : Color.brandText))
                     .symbolEffect(.bounce, value: post.likedByMe)
+                    .sensoryFeedback(.impact(weight: .light), trigger: post.likedByMe)
                     .tapTarget()
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.fitcomPressable)
             .disabled(!authStore.isSignedIn)
 
             commentIcon(onPhoto: onPhoto)
@@ -269,7 +270,7 @@ struct PostCardView: View {
             .foregroundStyle(onPhoto ? .white : Color.brandText)
             .tapTarget()
         if showsCommentLink {
-            NavigationLink(value: post) { icon }.buttonStyle(.plain)
+            NavigationLink(value: post) { icon }.buttonStyle(.fitcomPressable)
         } else {
             icon
         }

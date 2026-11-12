@@ -67,21 +67,21 @@ struct NotificationsView: View {
         switch item.kind {
         case "group_request", "group_invitation", "group_accepted", "group_rejected":
             if let groupId = item.groupId {
-                NavigationLink(value: GroupRoute(id: groupId)) { content(item) }.buttonStyle(.plain)
+                NavigationLink(value: GroupRoute(id: groupId)) { content(item) }.buttonStyle(.fitcomPressable)
             } else {
                 content(item)
             }
         case "follow":
-            NavigationLink(value: ProfileRoute(userId: item.actorId)) { content(item) }.buttonStyle(.plain)
+            NavigationLink(value: ProfileRoute(userId: item.actorId)) { content(item) }.buttonStyle(.fitcomPressable)
         case "join":
             if let activityId = item.activityId {
-                NavigationLink(value: activityId) { content(item) }.buttonStyle(.plain)
+                NavigationLink(value: activityId) { content(item) }.buttonStyle(.fitcomPressable)
             } else {
                 content(item)
             }
         default:
             if let postId = item.postId {
-                NavigationLink(value: PostRoute(id: postId)) { content(item) }.buttonStyle(.plain)
+                NavigationLink(value: PostRoute(id: postId)) { content(item) }.buttonStyle(.fitcomPressable)
             } else {
                 content(item)
             }
@@ -133,7 +133,7 @@ struct NotificationsView: View {
     private func initials(_ item: AppNotification) -> some View {
         Text(String(item.actorName.split(separator: " ").prefix(2).compactMap { $0.first }).uppercased())
             .font(.caption.weight(.bold))
-            .foregroundStyle(Color.brandAccent)
+            .foregroundStyle(Color.brandAccentText)
     }
 
     private func symbol(_ kind: String) -> String {

@@ -37,15 +37,15 @@ struct FeedActivityCard: View {
                     Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
                 }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.fitcomPressable)
 
             HStack {
                 Label(
-                    "\(activity.participantCount)/\(activity.capacity) · \(max(activity.spotsLeft, 0)) libres",
+                    "\(activity.participantCount)/\(activity.capacity) · \(Fmt.freeShort(activity.spotsLeft))",
                     systemImage: "person.2.fill"
                 )
                 .font(.caption.weight(.medium))
-                .foregroundStyle(Color.brandAccent)
+                .foregroundStyle(Color.brandAccentText)
                 Spacer()
                 action
             }

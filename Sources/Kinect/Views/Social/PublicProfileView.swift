@@ -128,7 +128,7 @@ struct PublicProfileView: View {
     }
 
     private func circleButton(_ symbol: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) { circleIcon(symbol) }.buttonStyle(.plain)
+        Button(action: action) { circleIcon(symbol) }.buttonStyle(.fitcomPressable)
     }
 
     private func circleIcon(_ symbol: String) -> some View {
@@ -180,7 +180,7 @@ struct PublicProfileView: View {
             }
             .frame(width: 92, height: 92)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.fitcomPressable)
         .disabled(isUploadingAvatar || isLoadingStories || (!isMe && activeStories.isEmpty))
         .accessibilityLabel(activeStories.isEmpty ? (isMe ? "Agregar historia" : "Foto de perfil") : "Ver historias")
         .overlay(alignment: .bottomTrailing) {
@@ -193,7 +193,7 @@ struct PublicProfileView: View {
                         .background(Color.brandAccent, in: Circle())
                         .overlay(Circle().stroke(Color.screenBackground, lineWidth: 2))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.fitcomPressable)
                 .disabled(isUploadingAvatar)
                 .accessibilityLabel("Agregar historia")
             }
@@ -238,7 +238,7 @@ struct PublicProfileView: View {
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.leading)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.fitcomPressable)
             }
 
             if let zone = stats.zone, !zone.isEmpty {
@@ -267,7 +267,7 @@ struct PublicProfileView: View {
                         .background(Color.brandAccent.opacity(0.14), in: Capsule())
                         .foregroundStyle(Color.brandAccent)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.fitcomPressable)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -356,7 +356,7 @@ struct PublicProfileView: View {
                         .padding(.vertical, 11)
                         .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.fitcomPressable)
                 }
             }
         }
@@ -384,7 +384,7 @@ struct PublicProfileView: View {
                         .padding(.vertical, 10)
                         .background(tab == item ? Color.cardBackground : Color.clear, in: Capsule())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.fitcomPressable)
             }
         }
         .padding(4)
@@ -408,7 +408,7 @@ struct PublicProfileView: View {
             let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 3)
             LazyVGrid(columns: columns, spacing: 4) {
                 ForEach(posts) { post in
-                    NavigationLink(value: post) { tile(post) }.buttonStyle(.plain)
+                    NavigationLink(value: post) { tile(post) }.buttonStyle(.fitcomPressable)
                 }
             }
         }
@@ -422,7 +422,7 @@ struct PublicProfileView: View {
             VStack(spacing: 12) {
                 ForEach(plans.sorted { $0.activity.scheduledAt > $1.activity.scheduledAt }) { entry in
                     NavigationLink(value: entry.activity.id) { ActivityRowView(activity: entry.activity) }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.fitcomPressable)
                 }
             }
         }
@@ -435,7 +435,7 @@ struct PublicProfileView: View {
         } else {
             VStack(spacing: 12) {
                 ForEach(groups) { group in
-                    NavigationLink(value: group) { GroupRowView(group: group) }.buttonStyle(.plain)
+                    NavigationLink(value: group) { GroupRowView(group: group) }.buttonStyle(.fitcomPressable)
                 }
             }
         }
@@ -491,7 +491,7 @@ struct PublicProfileView: View {
                 .glassSurface(Circle(), tint: Color.brandAccent.opacity(0.85), interactive: true)
                 .contentShape(Circle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.fitcomPressable)
         .padding(.bottom, 24)
         .accessibilityLabel("Nueva publicación")
     }

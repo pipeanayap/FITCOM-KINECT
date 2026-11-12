@@ -117,10 +117,10 @@ struct PostDetailView: View {
                 Circle().fill(Color.brandAccent.opacity(0.15)).frame(width: 34, height: 34)
                 Text(String((comment.profiles?.fullName ?? "?").split(separator: " ").prefix(2).compactMap { $0.first }).uppercased())
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(Color.brandAccent)
+                    .foregroundStyle(Color.brandAccentText)
             }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.fitcomPressable)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(comment.profiles?.fullName ?? "Usuario").font(.subheadline.weight(.semibold))
@@ -136,7 +136,7 @@ struct PostDetailView: View {
                 } label: {
                     Image(systemName: "trash").font(.caption).foregroundStyle(.secondary)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.fitcomPressable)
             }
         }
         .padding(.vertical, 8)

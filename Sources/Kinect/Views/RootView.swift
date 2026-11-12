@@ -19,6 +19,10 @@ struct RootView: View {
     /// Configuración y cuenta (o inicio de sesión si no hay sesión).
     @State private var showSettings = false
     @State private var showAuth = false
+    /// La bienvenida se ve una sola vez; después, quien quiera iniciar sesión lo hace desde el menú.
+    @AppStorage("hasSeenWelcome") private var hasSeenWelcome = false
+    /// Para qué se pide iniciar sesión; se muestra arriba en la hoja.
+    @State private var authReason: String?
     @State private var showMyProfile = false
     @State private var tabBar = TabBarState()
     @State private var tabBarHeight: CGFloat = 80
@@ -30,6 +34,9 @@ struct RootView: View {
     /// Aparte porque Mis planes también se recarga al abrir su pestaña (por ejemplo
     /// después de unirte a algo desde el feed).
     @State private var plansToken = 0
+    /// Al volver a una pestaña sólo se recarga si pasó un rato, no en cada toque.
+    @State private var lastExploreRefresh = Date()
+    @State private var lastPlansRefresh = Date()
 
     var body: some View {
         if authStore.isLoading {
@@ -63,6 +70,7 @@ struct RootView: View {
                     .offset(x: showDrawer ? SideDrawerView.width : 0)
             }
             .onChange(of: authStore.isSignedIn) { _, signedIn in
+                if signedIn { hasSeenWelcome = true }
                 showAuth = false
                 if !signedIn {
                     showSettings = false
@@ -79,8 +87,14 @@ struct RootView: View {
             .onChange(of: selectedTab) { _, tab in
                 tabBar.activeTab = tab
                 if tab == .explore && tabBar.exploreAtRoot { tabBar.isHidden = false }
-                if tab == .mine { plansToken += 1 }
-                if tab == .explore { exploreToken += 1 }
+                if tab == .mine, Date().timeIntervalSince(lastPlansRefresh) > 45 {
+                    plansToken += 1
+                    lastPlansRefresh = Date()
+                }
+                if tab == .explore, Date().timeIntervalSince(lastExploreRefresh) > 45 {
+                    exploreToken += 1
+                    lastExploreRefresh = Date()
+                }
             }
             .onChange(of: tabBar.requestedTab) { _, tab in
                 // Otra pantalla (p. ej. el perfil) pidió ir a una pestaña.
@@ -89,12 +103,28 @@ struct RootView: View {
                 showMyProfile = false
                 tabBar.requestedTab = nil
             }
+            .onChange(of: tabBar.requestedAuthReason) { _, reason in
+                guard let reason else { return }
+                tabBar.requestedAuthReason = nil
+                authReason = reason.isEmpty ? nil : reason
+                showAuth = true
+            }
+            .onChange(of: tabBar.requestedCreate) { _, option in
+                // Un estado vacío pidió crear algo (pide sesión si hace falta).
+                guard let option else { return }
+                tabBar.requestedCreate = nil
+                open(option)
+            }
             // Las hojas cuelgan de aquí (fuera de mainContent): también necesitan el estado de la barra.
             .environment(tabBar)
             .tint(.brandAccent)
-            .sheet(isPresented: $showAuth) { AuthView() }
+            .fontDesign(.rounded)
+            .sheet(isPresented: $showAuth, onDismiss: { authReason = nil }) { AuthView(reason: authReason) }
             .sheet(isPresented: $showSettings) { SettingsView() }
             .fullScreenCover(isPresented: $showMyProfile) { myProfile }
+            .fullScreenCover(isPresented: welcomeBinding) {
+                WelcomeView { hasSeenWelcome = true }
+            }
             .sheet(item: $createSheet) { sheet in createContent(sheet) }
         }
     }
@@ -146,10 +176,27 @@ struct RootView: View {
             tabBarHeight = frame.height
             if !tabBar.isHidden { tabBar.topEdge = frame.minY }
         }
-        .animation(.easeInOut(duration: 0.25), value: tabBar.isHidden)
+        .animation(.easeOut(duration: 0.2), value: tabBar.isHidden)
+        .sensoryFeedback(.success, trigger: refreshToken)
+        .task(id: badgeKey) {
+            tabBar.groupsBadge = authStore.isSignedIn ? await NotificationService.unreadGroupCount() : 0
+        }
         .onChange(of: tabBar.isHidden) { _, hidden in if hidden { showCreateMenu = false } }
         .environment(tabBar)
         .tint(.brandAccent)
+    }
+
+    /// Se muestra a quien abre la app por primera vez sin sesión.
+    private var welcomeBinding: Binding<Bool> {
+        Binding(
+            get: { !hasSeenWelcome && !authStore.isSignedIn },
+            set: { if !$0 { hasSeenWelcome = true } }
+        )
+    }
+
+    /// Cambia cuando hay que volver a contar los avisos de grupos.
+    private var badgeKey: String {
+        "\(authStore.isSignedIn)-\(selectedTab)-\(refreshToken)"
     }
 
     // MARK: - Panel lateral
@@ -194,6 +241,7 @@ struct RootView: View {
     /// Crear requiere sesión: sin ella se abre el inicio de sesión.
     private func open(_ option: CreateMenuView.Option) {
         guard authStore.isSignedIn else {
+            authReason = "Inicia sesión para crear actividades, publicaciones, historias y grupos."
             showAuth = true
             return
         }
@@ -213,9 +261,13 @@ struct RootView: View {
                 ActivityFormView(
                     organizerId: userId,
                     saveAction: .create { try await ActivityService.create($0) },
-                    onSaved: { _ in
+                    onSaved: { activity in
+                        // Al publicar, se abre la actividad nueva en Explorar: así se
+                        // ve el resultado en lugar de caer en Inicio sin confirmación.
                         exploreToken += 1
-                        created(in: .home)
+                        lastExploreRefresh = Date()
+                        created(in: .explore)
+                        tabBar.requestedActivityId = activity.id
                     }
                 )
             }

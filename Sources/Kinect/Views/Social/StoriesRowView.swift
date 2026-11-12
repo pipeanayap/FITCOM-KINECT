@@ -19,7 +19,7 @@ struct StoriesRowView: View {
                     Button { onOpen(group) } label: {
                         bubble(name: group.authorName, avatar: group.authorAvatar, ring: group.allViewed ? .viewed : .unseen)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.fitcomPressable)
                 }
             }
             .padding(.horizontal)
@@ -40,11 +40,11 @@ struct StoriesRowView: View {
                             .background(Color.brandAccent, in: Circle())
                             .overlay(Circle().stroke(Color.screenBackground, lineWidth: 2))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.fitcomPressable)
                     .offset(x: 2, y: -16)
                 }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.fitcomPressable)
     }
 
     private func bubble(name: String, avatar: String?, ring: Ring, initialsFrom: String? = nil) -> some View {

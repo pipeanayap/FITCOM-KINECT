@@ -53,7 +53,7 @@ struct PlaceDetailView: View {
                         NavigationLink(value: activity.id) {
                             ActivityRowView(activity: activity)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.fitcomPressable)
                     }
                 }
 

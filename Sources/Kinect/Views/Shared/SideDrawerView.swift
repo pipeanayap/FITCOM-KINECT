@@ -53,7 +53,7 @@ struct SideDrawerView: View {
                 }
                 .frame(width: 66, height: 66)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.fitcomPressable)
 
             Text(authStore.profile?.fullName ?? "")
                 .font(.title3.bold())
@@ -112,7 +112,7 @@ struct SideDrawerView: View {
             .padding(.vertical, 12)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.fitcomPressable)
     }
 
     private func smallRow(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
@@ -126,7 +126,7 @@ struct SideDrawerView: View {
             .padding(.vertical, 12)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.fitcomPressable)
     }
 
     private func loadStats() async {

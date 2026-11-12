@@ -39,12 +39,23 @@ struct FeedView: View {
     @State private var storyViewer: StoryViewerItem?
     @State private var showStoryCompose = false
     @State private var unreadCount = 0
+    @Environment(TabBarState.self) private var tabBar
 
     var body: some View {
         NavigationStack(path: $path) {
             Group {
                 if isLoading {
-                    LoadingStateView()
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 18) {
+                            header
+                            SkeletonList(count: 3)
+                        }
+                        .padding(.horizontal)
+                        .padding(.top, 8)
+                    }
+                    .scrollDisabled(true)
+                    .background(Color.screenBackground)
+                    .statusBarCover()
                 } else if let errorMessage {
                     ErrorStateView(message: errorMessage, retry: reload)
                 } else {
@@ -151,7 +162,7 @@ struct FeedView: View {
     private var header: some View {
         HStack(alignment: .center, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Inicio").font(.largeTitle.bold()).foregroundStyle(Color.brandText)
+                Text("Inicio").font(.displayXL).foregroundStyle(Color.brandText)
                 Text("Lo que pasa en tu comunidad").font(.subheadline).foregroundStyle(.secondary)
             }
             Spacer()
@@ -163,24 +174,14 @@ struct FeedView: View {
                         .frame(width: 46, height: 46)
                         .background(Color.cardBackground, in: Circle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.fitcomPressable)
                 .accessibilityLabel("Notificaciones")
             }
             Button(action: onOpenProfile) {
-                ZStack {
-                    Circle().fill(Color.brandAccent.opacity(0.15)).frame(width: 46, height: 46)
-                    if let urlString = authStore.profile?.avatarUrl, !urlString.isEmpty, let url = URL(string: urlString) {
-                        CachedAsyncImage(url: url) {
-                            Text(initials).font(.subheadline.weight(.bold)).foregroundStyle(Color.brandAccent)
-                        }
-                        .frame(width: 46, height: 46)
-                        .clipShape(Circle())
-                    } else {
-                        Text(initials).font(.subheadline.weight(.bold)).foregroundStyle(Color.brandAccent)
-                    }
-                }
+                AvatarView(url: authStore.profile?.avatarUrl, name: authStore.profile?.fullName ?? "", size: 46)
             }
-            .buttonStyle(.plain)
+            .accessibilityLabel("Abrir menú de perfil")
+            .buttonStyle(.fitcomPressable)
         }
         .padding(.top, 4)
     }
@@ -227,14 +228,18 @@ struct FeedView: View {
                 message: authStore.isSignedIn
                     ? "Toca el nombre de alguien en el feed y sigue a quien quieras ver aquí."
                     : "Inicia sesión para seguir a otras personas.",
-                systemImage: "person.2"
+                systemImage: "person.2",
+                actionTitle: authStore.isSignedIn ? nil : "Iniciar sesión",
+                action: authStore.isSignedIn ? nil : { tabBar.requestedAuthReason = "Inicia sesión para seguir a otras personas." }
             )
             .padding(.top, 20)
         } else {
             EmptyStateView(
                 title: "Todavía no hay publicaciones",
                 message: "Publica algo o crea una actividad para empezar.",
-                systemImage: "text.bubble"
+                systemImage: "text.bubble",
+                actionTitle: "Publicar",
+                action: { tabBar.requestedCreate = .post }
             )
             .padding(.top, 20)
         }

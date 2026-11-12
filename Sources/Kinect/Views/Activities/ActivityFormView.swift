@@ -34,6 +34,9 @@ struct ActivityFormView: View {
 
     @State private var isSaving = false
     @State private var errorMessage: String?
+    @FocusState private var focus: Field?
+
+    private enum Field { case title, capacity, description, cost }
 
     var body: some View {
         NavigationStack {
@@ -49,6 +52,9 @@ struct ActivityFormView: View {
                         }
                     }
                     TextField("Título", text: $title)
+                        .focused($focus, equals: .title)
+                        .submitLabel(.next)
+                        .onSubmit { focus = .capacity }
                     DatePicker(
                         "Fecha y hora", selection: $scheduledAt, in: Date()..., displayedComponents: [.date, .hourAndMinute]
                     )
@@ -86,6 +92,7 @@ struct ActivityFormView: View {
                 Section("Cupo") {
                     TextField("Cupo total", text: $capacityText)
                         .keyboardType(.numberPad)
+                        .focused($focus, equals: .capacity)
                     if case .edit(let currentParticipantCount, _) = saveAction, currentParticipantCount > 0 {
                         Text("Ya hay \(currentParticipantCount) persona(s) inscritas; el cupo no puede ser menor.")
                             .font(.footnote)
@@ -95,8 +102,10 @@ struct ActivityFormView: View {
 
                 Section("Opcional") {
                     TextField("Descripción", text: $description, axis: .vertical)
+                        .focused($focus, equals: .description)
                     TextField("Costo estimado", text: $estimatedCostText)
                         .keyboardType(.decimalPad)
+                        .focused($focus, equals: .cost)
                 }
 
                 // (US-13) No es parte del formulario de creación (US-03 no lo
@@ -109,12 +118,27 @@ struct ActivityFormView: View {
                     }
                 }
 
+                // Dice por qué todavía no se puede guardar, en lugar de un botón apagado sin explicación.
+                if let saveHint {
+                    Section {
+                        Label(saveHint, systemImage: "info.circle")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 if let errorMessage {
                     Section { Text(errorMessage).foregroundStyle(.red) }
                 }
             }
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle(isEditing ? "Editar actividad" : "Nueva actividad")
             .toolbar {
+                // Los teclados numéricos no tienen tecla de cerrar.
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Listo") { focus = nil }
+                }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancelar") { dismiss() }
                 }
@@ -149,6 +173,20 @@ struct ActivityFormView: View {
 
     private var estimatedCost: Double? {
         estimatedCostText.isEmpty ? nil : Double(estimatedCostText.replacingOccurrences(of: ",", with: "."))
+    }
+
+    /// Primera razón por la que aún no se puede guardar (mismo orden que `canSave`).
+    private var saveHint: String? {
+        if sport.isEmpty { return "Elige un deporte." }
+        if title.isEmpty { return "Escribe un título." }
+        if zone.isEmpty || (!isEditing && latitude == nil) { return "Elige una ubicación para la actividad." }
+        guard let capacity, capacity >= 1 else { return "Indica un cupo de al menos 1 persona." }
+        if scheduledAt <= Date() { return "La fecha y la hora deben ser futuras." }
+        if case .edit(let currentParticipantCount, _) = saveAction, capacity < currentParticipantCount {
+            return "El cupo no puede ser menor a las \(currentParticipantCount) personas ya inscritas."
+        }
+        if !estimatedCostText.isEmpty && estimatedCost == nil { return "El costo debe ser un número (por ejemplo 50 o 49.90)." }
+        return nil
     }
 
     private var canSave: Bool {
@@ -212,7 +250,8 @@ struct ActivityFormView: View {
             onSaved(saved)
             dismiss()
         } catch {
-            errorMessage = "No se pudo guardar la actividad. Revisa los datos e intenta de nuevo."
+            AppLog.activities.error("Guardar actividad falló: \(error.localizedDescription, privacy: .public)")
+            errorMessage = ErrorText.describe(error, fallback: "No se pudo guardar la actividad. Revisa los datos e intenta de nuevo.")
         }
     }
 }

@@ -31,6 +31,15 @@ final class TabBarState {
     /// Una pantalla pide cambiar de pestaña (p. ej. "Únete a tu primer grupo");
     /// RootView lo atiende y lo limpia.
     var requestedTab: FitcomTab?
+    /// Una pantalla pide abrir una opción de "Crear" (p. ej. el estado vacío de
+    /// Explorar); RootView lo atiende (pide sesión si hace falta) y lo limpia.
+    var requestedCreate: CreateMenuView.Option?
+    /// Abrir el detalle de una actividad en Explorar (p. ej. la recién creada).
+    var requestedActivityId: UUID?
+    /// Una pantalla pide iniciar sesión y dice para qué ("" = sin contexto).
+    var requestedAuthReason: String?
+    /// Solicitudes e invitaciones de grupo pendientes: punto en la pestaña Grupos.
+    var groupsBadge = 0
 }
 
 /// Barra de navegación flotante de vidrio (estilo iOS 26 "Liquid Glass"):
@@ -42,6 +51,10 @@ struct FitcomTabBar: View {
     @Binding var selected: FitcomTab
     @Binding var isCreateOpen: Bool
 
+    @Environment(TabBarState.self) private var tabBarState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var indicator
+
     var body: some View {
         ZStack(alignment: .top) {
             HStack(spacing: 2) {
@@ -49,7 +62,7 @@ struct FitcomTabBar: View {
                 tabButton(.explore, icon: "safari.fill", label: "Explorar")
                 // Hueco para el botón elevado, que se dibuja encima.
                 Color.clear.frame(width: 66, height: 1)
-                tabButton(.groups, icon: "person.3.fill", label: "Grupos")
+                tabButton(.groups, icon: "person.3.fill", label: "Grupos", badge: tabBarState.groupsBadge)
                 tabButton(.mine, icon: "calendar", label: "Planes")
             }
             .padding(5)
@@ -79,23 +92,39 @@ struct FitcomTabBar: View {
         .accessibilityLabel(isCreateOpen ? "Cerrar menú" : "Crear")
     }
 
-    private func tabButton(_ tab: FitcomTab, icon: String, label: String) -> some View {
+    private func tabButton(_ tab: FitcomTab, icon: String, label: String, badge: Int = 0) -> some View {
         let isSelected = selected == tab
         return Button {
             isCreateOpen = false
-            selected = tab
+            // El fondo de la pestaña activa se desliza (180 ms, ease-out); con
+            // "Reducir movimiento" cambia sin animar.
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) { selected = tab }
         } label: {
             VStack(spacing: 3) {
                 Image(systemName: icon)
                     .font(.system(size: 20, weight: .semibold))
+                    .overlay(alignment: .topTrailing) {
+                        if badge > 0 {
+                            Circle()
+                                .fill(Color.brandAccent)
+                                .frame(width: 10, height: 10)
+                                .overlay(Circle().stroke(Color.black.opacity(0.35), lineWidth: 1.5))
+                                .offset(x: 6, y: -3)
+                        }
+                    }
                 Text(label).font(.caption2.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.8)
             }
             .foregroundStyle(isSelected ? Color.white : .white.opacity(0.65))
             .frame(maxWidth: .infinity)
             .padding(.vertical, 7)
-            .background(Capsule().fill(.white.opacity(isSelected ? 0.18 : 0)))
+            .background {
+                if isSelected {
+                    Capsule().fill(.white.opacity(0.18))
+                        .matchedGeometryEffect(id: "tabIndicator", in: indicator)
+                }
+            }
         }
-        .accessibilityLabel(label)
+        .accessibilityLabel(badge > 0 ? "\(label), \(badge) pendientes" : label)
     }
 }
 
@@ -157,6 +186,6 @@ struct CreateMenuView: View {
             .padding(.vertical, 8)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.fitcomPressable)
     }
 }

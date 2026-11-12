@@ -14,6 +14,7 @@ struct ActivityDetailView: View {
 
     @State private var activity: Activity?
     @State private var organizerName: String?
+    @State private var organizerAvatar: String?
     @State private var participants: [Participant] = []
     @State private var myParticipation: Participation?
     @State private var coordinationLink: String?
@@ -21,6 +22,10 @@ struct ActivityDetailView: View {
     @State private var errorMessage: String?
     @State private var actionError: String?
     @State private var isPerformingAction = false
+    /// Si te pidieron iniciar sesión para unirte, al volver ya con sesión se completa la inscripción.
+    @State private var joinAfterSignIn = false
+    @State private var joinedToken = 0
+    @State private var leftToken = 0
 
     @State private var showEditSheet = false
     @State private var showCancelConfirmation = false
@@ -65,6 +70,18 @@ struct ActivityDetailView: View {
                 ReportActivityView(activityId: activity.id)
             }
         }
+        .onChange(of: authStore.isSignedIn) { _, signedIn in
+            // Iniciaste sesión desde "Unirme": se completa la inscripción sin pedirte otro toque.
+            guard signedIn, joinAfterSignIn else { return }
+            joinAfterSignIn = false
+            Task {
+                await load()
+                if myParticipation == nil, activity?.canAcceptParticipants == true { await join() }
+            }
+        }
+        .sensoryFeedback(.success, trigger: joinedToken)
+        .sensoryFeedback(.impact(weight: .light), trigger: leftToken)
+        .animation(.easeOut(duration: 0.2), value: myParticipation?.id)
         .confirmationDialog(
             "¿Cancelar esta actividad?", isPresented: $showCancelConfirmation, titleVisibility: .visible
         ) {
@@ -153,10 +170,12 @@ struct ActivityDetailView: View {
         ZStack(alignment: .topLeading) {
             SportVisuals.gradient(for: activity.sport)
             Image(systemName: SportVisuals.symbol(for: activity.sport))
-                .font(.system(size: 130))
-                .foregroundStyle(.white.opacity(0.12))
-                .offset(x: 80, y: 10)
+                .font(.system(size: 190, weight: .bold))
+                .foregroundStyle(.white.opacity(0.13))
+                .rotationEffect(.degrees(-12))
+                .offset(x: 70, y: 40)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            LinearGradient(colors: [.clear, .black.opacity(0.45)], startPoint: .center, endPoint: .bottom)
 
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
@@ -165,11 +184,13 @@ struct ActivityDetailView: View {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 16, weight: .bold))
                             .foregroundStyle(.white)
-                            .frame(width: 36, height: 36)
-                            .background(.white.opacity(0.18), in: Circle())
+                            .frame(width: 40, height: 40)
+                            .background(.black.opacity(0.22), in: Circle())
                     }
+                    .buttonStyle(.fitcomPressable)
+                    .accessibilityLabel("Volver")
                     Spacer()
-                    StatusBadge(status: activity.computedStatus)
+                    if activity.computedStatus != .abierta { StatusBadge(status: activity.computedStatus) }
                     if canManage(activity) {
                         // Editar/cancelar van en un menú para no tocarlos por error.
                         Menu {
@@ -183,49 +204,90 @@ struct ActivityDetailView: View {
                             Image(systemName: "ellipsis")
                                 .font(.system(size: 16, weight: .bold))
                                 .foregroundStyle(.white)
-                                .frame(width: 36, height: 36)
-                                .background(.white.opacity(0.18), in: Circle())
+                                .frame(width: 40, height: 40)
+                                .background(.black.opacity(0.22), in: Circle())
                         }
+                        .accessibilityLabel("Más opciones")
                     }
                 }
                 Spacer()
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(activity.sport.capitalized)
-                        .font(.caption.weight(.bold))
-                        .tracking(0.5)
-                        .foregroundStyle(.white.opacity(0.75))
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        heroChip(Fmt.dayChip(activity.scheduledAt))
+                        heroChip(activity.sport)
+                    }
                     Text(activity.title)
-                        .font(.title.bold())
+                        .font(.displayXL)
                         .foregroundStyle(.white)
-                        .lineLimit(2)
+                        .lineLimit(3)
+                        .minimumScaleFactor(0.75)
                     if let organizerName {
-                        Label("Organiza \(organizerName)", systemImage: "person.crop.circle.fill")
-                            .font(.footnote)
-                            .foregroundStyle(.white.opacity(0.85))
+                        HStack(spacing: 8) {
+                            AvatarView(url: organizerAvatar, name: organizerName, size: 28)
+                            Text("Organiza \(organizerName)")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.95))
+                                .lineLimit(1)
+                        }
                     }
                     if let groupName {
                         Label("Grupo \(groupName)", systemImage: "person.3.fill")
-                            .font(.footnote)
-                            .foregroundStyle(.white.opacity(0.85))
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.9))
+                    }
+                    CapacityBar(
+                        filled: activity.participantCount,
+                        capacity: activity.capacity,
+                        tint: .white,
+                        track: .white.opacity(0.28),
+                        height: 8
+                    )
+                    .padding(.top, 4)
+                    HStack {
+                        if !participants.isEmpty {
+                            AvatarStack(
+                                people: participants.map { Attendee(name: $0.profile.fullName, avatarUrl: $0.profile.avatarUrl) },
+                                total: activity.participantCount, size: 28, ring: .white
+                            )
+                        }
+                        Spacer()
+                        Text("\(activity.participantCount)/\(activity.capacity) · \(Fmt.freeShort(activity.spotsLeft))")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white)
                     }
                 }
             }
             .padding(20)
         }
-        .frame(height: 230)
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .shadow(color: .black.opacity(0.15), radius: 14, x: 0, y: 8)
+        .frame(height: 360)
+        .clipShape(RoundedRectangle(cornerRadius: DS.heroRadius, style: .continuous))
+        .shadow(color: .black.opacity(0.18), radius: 16, x: 0, y: 8)
+    }
+
+    private func heroChip(_ text: String) -> some View {
+        Text(text)
+            .metaCaps(.white)
+            .lineLimit(1)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(.black.opacity(0.22), in: Capsule())
     }
 
     private func infoChip(icon: String, label: String, value: String) -> some View {
-        VStack(spacing: 6) {
-            Image(systemName: icon).foregroundStyle(Color.brandAccent)
-            Text(value).font(.subheadline.weight(.semibold)).foregroundStyle(Color.brandText)
-            Text(label).font(.caption2).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(Color.brandAccent)
+            Text(value)
+                .font(.cardTitle)
+                .foregroundStyle(Color.brandText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Text(label).metaCaps()
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .cardStyle(padding: 0)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(Color.cardBackground, in: RoundedRectangle(cornerRadius: DS.cardRadius, style: .continuous))
     }
 
     private func infoRow(icon: String, text: String) -> some View {
@@ -263,42 +325,35 @@ struct ActivityDetailView: View {
 
     @ViewBuilder
     private func participantsCard(for activity: Activity) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Participantes (\(activity.participantCount)/\(activity.capacity))")
-                .font(.headline)
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Quién va")
+                .font(.displayM)
                 .foregroundStyle(Color.brandText)
             if participants.isEmpty {
-                Text("Todavía nadie se ha unido.").foregroundStyle(.secondary)
+                Text("Todavía nadie se ha unido. Sé la primera persona.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             } else {
-                ForEach(participants) { participant in
-                    HStack(spacing: 10) {
-                        ZStack {
-                            Circle().fill(Color.brandAccent.opacity(0.15)).frame(width: 32, height: 32)
-                            if let urlString = participant.profile.avatarUrl, let url = URL(string: urlString), !urlString.isEmpty {
-                                AsyncImage(url: url) { image in
-                                    image.resizable().scaledToFill()
-                                } placeholder: {
-                                    participantInitials(participant)
-                                }
-                                .frame(width: 32, height: 32)
-                                .clipShape(Circle())
-                            } else {
-                                participantInitials(participant)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .top, spacing: 16) {
+                        ForEach(participants) { participant in
+                            VStack(spacing: 6) {
+                                AvatarView(url: participant.profile.avatarUrl, name: participant.profile.fullName, size: 56)
+                                Text(participant.profile.fullName.split(separator: " ").first.map(String.init) ?? participant.profile.fullName)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(Color.brandText)
+                                    .lineLimit(1)
+                                    .frame(width: 64)
                             }
+                            .accessibilityElement(children: .combine)
                         }
-                        Text(participant.profile.fullName)
                     }
+                    .padding(.vertical, 2)
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardStyle()
-    }
-
-    private func participantInitials(_ participant: Participant) -> some View {
-        Text(initials(for: participant.profile.fullName))
-            .font(.caption.weight(.bold))
-            .foregroundStyle(Color.brandAccent)
     }
 
     private func coordinationCard(link: String) -> some View {
@@ -318,12 +373,6 @@ struct ActivityDetailView: View {
         .cardStyle()
     }
 
-    private func initials(for name: String) -> String {
-        let parts = name.split(separator: " ")
-        let letters = parts.prefix(2).compactMap { $0.first }
-        return String(letters).uppercased()
-    }
-
     /// Organizador de una actividad todavía no cancelada (US-11, US-12).
     private func canManage(_ activity: Activity) -> Bool {
         authStore.userId == activity.organizerId && activity.status != .cancelada
@@ -341,7 +390,14 @@ struct ActivityDetailView: View {
                 calloutText("Esta actividad está cancelada.", icon: "xmark.circle.fill")
             }
         } else if !authStore.isSignedIn {
-            calloutBar("Inicia sesión para unirte a esta actividad.", icon: "lock.fill")
+            VStack(alignment: .leading, spacing: 10) {
+                calloutBar("Inicia sesión para unirte a esta actividad.", icon: "lock.fill")
+                Button("Iniciar sesión") {
+                    joinAfterSignIn = true
+                    tabBar.requestedAuthReason = "Inicia sesión para unirte a esta actividad."
+                }
+                .buttonStyle(.fitcomPrimary(disabled: false, fullWidth: false))
+            }
         } else if myParticipation != nil, activity.status != .cancelada, activity.computedStatus != .finalizada {
             // (US-10) No se puede salir de una actividad ya cancelada o finalizada.
             VStack(alignment: .leading, spacing: 10) {
@@ -357,12 +413,14 @@ struct ActivityDetailView: View {
         } else if activity.canAcceptParticipants {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(max(activity.spotsLeft, 0)) lugares libres")
+                    Text(Fmt.spotsFree(activity.spotsLeft))
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text("de \(activity.capacity) totales")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .contentTransition(.numericText())
+                        .animation(.easeOut(duration: 0.2), value: activity.spotsLeft)
+                    CapacityBar(filled: activity.participantCount, capacity: activity.capacity)
+                        .frame(width: 130)
+                        .padding(.top, 2)
                 }
                 Spacer()
                 Button {
@@ -403,7 +461,9 @@ struct ActivityDetailView: View {
             }
             async let organizer = ProfileService.fetch(id: activity.organizerId)
             async let participantsList = ParticipationService.participants(activityId: activityId)
-            organizerName = try? await organizer.fullName
+            let organizerProfile = try? await organizer
+            organizerName = organizerProfile?.fullName
+            organizerAvatar = organizerProfile?.avatarUrl
             participants = (try? await participantsList) ?? []
             if let userId = authStore.userId {
                 myParticipation = try await ParticipationService.myParticipation(
@@ -414,7 +474,7 @@ struct ActivityDetailView: View {
             }
             await loadCoordinationLink()
         } catch {
-            errorMessage = "No se pudo cargar la actividad."
+            errorMessage = ErrorText.describe(error, fallback: "No se pudo cargar la actividad.")
         }
     }
 
@@ -430,8 +490,15 @@ struct ActivityDetailView: View {
         do {
             try await ParticipationService.join(activityId: activityId, userId: userId)
             await load()
+            joinedToken += 1
         } catch {
-            actionError = "No se pudo completar la inscripción (puede que ya no haya cupo)."
+            AppLog.activities.error("Unirse falló: \(error.localizedDescription, privacy: .public)")
+            await load()
+            if let current = activity, !current.canAcceptParticipants {
+                actionError = "Esta actividad ya no tiene lugares disponibles."
+            } else {
+                actionError = ErrorText.describe(error, fallback: "No se pudo completar la inscripción. Intenta de nuevo.")
+            }
         }
     }
 
@@ -443,8 +510,9 @@ struct ActivityDetailView: View {
         do {
             try await ParticipationService.leave(participationId: participationId)
             await load()
+            leftToken += 1
         } catch {
-            actionError = "No se pudo salir de la actividad."
+            actionError = ErrorText.describe(error, fallback: "No se pudo salir de la actividad.")
         }
     }
 

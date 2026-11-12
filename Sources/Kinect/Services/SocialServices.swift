@@ -126,6 +126,12 @@ enum NotificationService {
         return items.filter { $0.readAt == nil }.count
     }
 
+    /// Solicitudes e invitaciones de grupo sin leer: lo que pide acción del usuario.
+    static func unreadGroupCount() async -> Int {
+        let items = (try? await list(limit: 50)) ?? []
+        return items.filter { $0.readAt == nil && ($0.kind == "group_request" || $0.kind == "group_invitation") }.count
+    }
+
     static func markAllRead(userId: UUID) async {
         _ = try? await SupabaseManager.client
             .from("notifications")
